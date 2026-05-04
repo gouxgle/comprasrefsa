@@ -1,0 +1,408 @@
+{% extends "base.html" %}
+
+{% block title %}Retiro de Materiales — REFSA{% endblock %}
+
+{% block extra_css %}
+<style>
+.typeahead-wrap { position: relative; }
+.typeahead-drop {
+    position: absolute;
+    top: 100%; left: 0; right: 0;
+    z-index: 1050;
+    background: #fff;
+    border: 1px solid #ced4da;
+    border-top: none;
+    border-radius: 0 0 .375rem .375rem;
+    max-height: 220px;
+    overflow-y: auto;
+    box-shadow: 0 6px 16px rgba(0,0,0,.12);
+}
+.typeahead-item {
+    padding: .45rem .75rem;
+    cursor: pointer;
+    font-size: .875rem;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+.typeahead-item:last-child { border-bottom: none; }
+.typeahead-item:hover { background: #e3f2fd; }
+.typeahead-msg {
+    padding: .5rem .75rem;
+    font-size: .825rem;
+    color: #6c757d;
+    text-align: center;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-1" style="color:var(--refsa-blue);">
+                    <i class="fas fa-dolly me-2"></i>Retiro de Materiales
+                </h2>
+                <p class="text-muted mb-0">
+                    <i class="fas fa-user me-1"></i><strong>{{ usuario }}</strong>
+                    &nbsp;|&nbsp;
+                    <i class="fas fa-calendar me-1"></i>{{ fecha_actual }}
+                </p>
+            </div>
+            <span class="badge bg-primary fs-6">
+                <i class="fas fa-boxes me-1"></i>{{ lista|length }} ítem(s)
+            </span>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Columna principal -->
+    <div class="col-lg-8">
+        <!-- Selector de material -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-search me-2"></i>Seleccionar Material
+            </div>
+            <div class="card-body">
+                <form method="POST" id="formAgregar">
+                    <input type="hidden" name="accion" value="agregar">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-box me-1"></i>Material *
+                            </label>
+                            <select name="material" id="material" class="form-select" required>
+                                <option value="">-- Busque por código o descripción --</option>
+                                {% for m in materiales %}
+                                <option value="{{ m[0] }}|{{ m[1] }}"
+                                        data-stock="{{ m[3] if m[3] else 0 }}">
+                                    {{ m[0] }}-{{ m[1] }} | {{ m[2] }} &nbsp;(Stock: {{ m[3] if m[3] else 0 }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div id="stockInfo" class="form-text mt-1"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-calculator me-1"></i>Cantidad *
+                            </label>
+                            <input type="number" name="cantidad" id="cantidad"
+                                   class="form-control" placeholder="0.00"
+                                   min="0.01" step="0.01" required>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-plus me-1"></i>Agregar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Lista de materiales -->
+        {% if lista %}
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-list me-2"></i>Materiales a Retirar</span>
+                <form method="POST" class="d-inline">
+                    <button type="submit" name="accion" value="limpiar"
+                            class="btn btn-outline-secondary btn-sm"
+                            onclick="return confirm('¿Limpiar toda la lista?')">
+                        <i class="fas fa-eraser me-1"></i>Limpiar Lista
+                    </button>
+                </form>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>CD1</th><th>CD2</th><th>Descripción</th>
+                                <th class="text-end">Cantidad</th>
+                                <th class="text-center">Stock</th>
+                                <th class="text-center">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in lista %}
+                            <tr>
+                                <td><code>{{ item.cd1 }}</code></td>
+                                <td><code>{{ item.cd2 }}</code></td>
+                                <td>{{ item.descripcion }}</td>
+                                <td class="text-end"><strong>{{ item.cantidad }}</strong></td>
+                                <td class="text-center">
+                                    {% set s = item.stock|float %}
+                                    {% set c = item.cantidad|float %}
+                                    {% if s >= c %}
+                                        <span class="badge bg-success"><i class="fas fa-check me-1"></i>{{ item.stock }}</span>
+                                    {% elif s > 0 %}
+                                        <span class="badge bg-warning text-dark"><i class="fas fa-exclamation-triangle me-1"></i>{{ item.stock }}</span>
+                                    {% else %}
+                                        <span class="badge bg-danger"><i class="fas fa-times me-1"></i>Sin stock</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <form method="POST" class="d-inline"
+                                          onsubmit="return confirm('¿Eliminar este material?')">
+                                        <input type="hidden" name="accion" value="eliminar">
+                                        <input type="hidden" name="index" value="{{ loop.index0 }}">
+                                        <button type="submit" class="btn btn-danger btn-sm"
+                                                data-bs-toggle="tooltip" title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-light">
+                                <td colspan="3" class="text-end fw-semibold">Total:</td>
+                                <td colspan="3"><strong>{{ lista|length }} ítem(s)</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">No hay materiales en la lista</h5>
+                <p class="text-muted mb-0">Seleccione un material y agréguelo con el formulario de arriba.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Panel lateral -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-clipboard-list me-2"></i>Datos del Retiro
+            </div>
+            <div class="card-body">
+                <form method="POST" id="formSubir">
+                    <input type="hidden" name="accion" value="subir">
+
+                    <!-- Quién retira - typeahead -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-user me-1"></i>Persona que retira *
+                        </label>
+                        <div class="typeahead-wrap">
+                            <input type="text" id="txtQuienRetira" class="form-control"
+                                   placeholder="Escriba nombre para buscar..." autocomplete="off">
+                            <input type="hidden" name="quienretira" id="hidQuienRetira">
+                            <div id="dropQuienRetira" class="typeahead-drop d-none"></div>
+                        </div>
+                    </div>
+
+                    {% if tiene_cargo %}
+                    <!-- Cargo a empleado (Higiene y Seguridad) - typeahead -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-user-tag me-1"></i>Cargo al empleado
+                            <small class="text-muted fw-normal">(H&amp;S)</small>
+                        </label>
+                        <div class="typeahead-wrap">
+                            <input type="text" id="txtCargo" class="form-control"
+                                   placeholder="Escriba nombre para buscar..." autocomplete="off">
+                            <input type="hidden" name="cargo_persona" id="hidCargo">
+                            <div id="dropCargo" class="typeahead-drop d-none"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if tiene_motivo %}
+                    <!-- Motivo (Distribución / Zonas / OT) -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-tag me-1"></i>Motivo *
+                        </label>
+                        <select name="motivo" class="form-select" required>
+                            <option value="">-- Seleccione motivo --</option>
+                            <option value="1">Mantenimiento</option>
+                            <option value="2">Reposición de stock</option>
+                            <option value="3">Obra nueva</option>
+                            <option value="4">Reparación</option>
+                            <option value="5">Emergencia</option>
+                            <option value="6">Otro</option>
+                        </select>
+                    </div>
+                    {% endif %}
+
+                    <!-- Localidad - typeahead -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-map-marker-alt me-1"></i>Localidad
+                        </label>
+                        <div class="typeahead-wrap">
+                            <input type="text" id="txtLocalidad" class="form-control"
+                                   placeholder="Buscar localidad..." autocomplete="off">
+                            <input type="hidden" name="ubicacion" id="hidLocalidad">
+                            <div id="dropLocalidad" class="typeahead-drop d-none"></div>
+                        </div>
+                    </div>
+
+                    <!-- Sector destino - typeahead -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-building me-1"></i>Sector
+                        </label>
+                        <div class="typeahead-wrap">
+                            <input type="text" id="txtSector" class="form-control"
+                                   placeholder="Buscar sector..." autocomplete="off">
+                            <input type="hidden" name="sector_destino" id="hidSector">
+                            <div id="dropSector" class="typeahead-drop d-none"></div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-comment me-1"></i>Observaciones
+                        </label>
+                        <textarea name="detalles" class="form-control" rows="2"
+                                  placeholder="Observaciones adicionales..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100"
+                            {% if not lista %}disabled{% endif %}
+                            onclick="return validarYConfirmar()">
+                        <i class="fas fa-check-circle me-1"></i>Generar Vale de Retiro
+                    </button>
+                    {% if not lista %}
+                    <small class="d-block text-center text-muted mt-2">
+                        <i class="fas fa-info-circle me-1"></i>Agregue materiales para habilitar
+                    </small>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-lightbulb text-warning me-1"></i>Ayuda Rápida
+                </h6>
+                <ul class="small mb-0 ps-3">
+                    <li>Busque materiales por código o descripción</li>
+                    <li>Escriba el nombre de quien retira para filtrar</li>
+                    <li>Busque localidad escribiendo al menos 2 letras</li>
+                    <li>Sector es opcional; por defecto su propio sector</li>
+                    {% if tiene_motivo %}<li>Indique el motivo del retiro</li>{% endif %}
+                    {% if tiene_cargo %}<li>Puede asignar cargo a un empleado específico</li>{% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#material').select2({
+        theme: 'bootstrap-5',
+        placeholder: '-- Busque por código o descripción --',
+        allowClear: true,
+        width: '100%'
+    });
+    $('#material').on('change', function() {
+        var stock = $(this).find(':selected').data('stock');
+        if ($(this).val() && stock !== undefined) {
+            var cls  = stock > 0 ? 'text-success' : 'text-danger';
+            var icon = stock > 0 ? 'check-circle' : 'times-circle';
+            $('#stockInfo').html('<i class="fas fa-' + icon + ' ' + cls + ' me-1"></i>Stock disponible: <strong>' + stock + '</strong>');
+            $('#cantidad').focus();
+        } else {
+            $('#stockInfo').html('');
+        }
+        $('#cantidad').val('');
+    });
+});
+
+// ─── Typeahead genérico ───────────────────────────────────────────────────────
+function crearTypeahead(txtId, hidId, dropId, url) {
+    var timer = null;
+    var txt  = document.getElementById(txtId);
+    var hid  = document.getElementById(hidId);
+    var drop = document.getElementById(dropId);
+
+    txt.addEventListener('input', function() {
+        hid.value = '';
+        clearTimeout(timer);
+        var q = txt.value.trim();
+        if (q.length < 2) {
+            drop.classList.add('d-none');
+            drop.innerHTML = '';
+            return;
+        }
+        drop.innerHTML = '<div class="typeahead-msg"><i class="fas fa-spinner fa-spin me-1"></i>Buscando...</div>';
+        drop.classList.remove('d-none');
+        timer = setTimeout(function() {
+            fetch(url + '?q=' + encodeURIComponent(q))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.length === 0) {
+                        drop.innerHTML = '<div class="typeahead-msg">Sin resultados</div>';
+                        return;
+                    }
+                    drop.innerHTML = '';
+                    data.forEach(function(item) {
+                        var div = document.createElement('div');
+                        div.className = 'typeahead-item';
+                        var badge = item.extra
+                            ? '<span class="badge bg-light text-secondary border me-1" style="font-size:.75rem">' + item.extra + '</span>'
+                            : '';
+                        div.innerHTML = badge + item.nombre;
+                        div.addEventListener('mousedown', function(e) {
+                            e.preventDefault();
+                            txt.value = item.nombre;
+                            hid.value = item.id;
+                            drop.classList.add('d-none');
+                        });
+                        drop.appendChild(div);
+                    });
+                })
+                .catch(function() {
+                    drop.innerHTML = '<div class="typeahead-msg text-danger">Error al buscar</div>';
+                });
+        }, 300);
+    });
+
+    txt.addEventListener('blur', function() {
+        setTimeout(function() { drop.classList.add('d-none'); }, 150);
+    });
+
+    txt.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') { drop.classList.add('d-none'); }
+    });
+}
+
+crearTypeahead('txtQuienRetira', 'hidQuienRetira', 'dropQuienRetira',
+    '{{ url_for("retiro.buscar_personas") }}');
+crearTypeahead('txtLocalidad', 'hidLocalidad', 'dropLocalidad',
+    '{{ url_for("retiro.buscar_localidades") }}');
+crearTypeahead('txtSector', 'hidSector', 'dropSector',
+    '{{ url_for("retiro.buscar_jefaturas") }}');
+{% if tiene_cargo %}
+crearTypeahead('txtCargo', 'hidCargo', 'dropCargo',
+    '{{ url_for("retiro.buscar_personas") }}');
+{% endif %}
+
+function validarYConfirmar() {
+    if (!document.getElementById('hidQuienRetira').value) {
+        alert('Debe seleccionar una persona de la lista sugerida.');
+        document.getElementById('txtQuienRetira').focus();
+        return false;
+    }
+    return confirm('¿Confirmar y registrar este retiro?');
+}
+</script>
+{% endblock %}

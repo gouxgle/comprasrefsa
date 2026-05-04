@@ -1,0 +1,17 @@
+# Credenciales — nunca subir al repo
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Backups locales
+bkp/
+hugo/
+*.bkp
+*~
+
+# Editor
+.vscode/
+.idea/

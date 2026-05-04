@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Pedido Interno de Materiales — REFSA{% endblock %}
+
+{% block content %}
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-1" style="color:var(--refsa-blue);">
+                    <i class="fas fa-file-alt"></i> Pedido Interno de Materiales (PIM)
+                </h2>
+                <p class="text-muted mb-0">
+                    <i class="fas fa-user me-1"></i><strong>{{ usuario }}</strong>
+                    &nbsp;|&nbsp;
+                    <i class="fas fa-calendar me-1"></i>{{ fecha_actual }}
+                </p>
+            </div>
+            <span class="badge bg-primary fs-6">
+                <i class="fas fa-shopping-cart me-1"></i>{{ pedidos|length }} ítem(s)
+            </span>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Columna principal -->
+    <div class="col-lg-8">
+        <!-- Selección de material -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-search me-2"></i>Seleccionar Material
+            </div>
+            <div class="card-body">
+                <form method="POST" id="formAgregar">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-box me-1"></i>Material *
+                            </label>
+                            <select name="material" id="material" class="form-select" required>
+                                <option value="">-- Seleccione un material --</option>
+                                {% for m in materiales %}
+                                <option value="{{ m[0] }}|{{ m[1] }}"
+                                        data-stock="{{ m[3] if m[3] else 0 }}">
+                                    {{ m[0] }}-{{ m[1] }} | {{ m[2] }} &nbsp;(Stock: {{ m[3] if m[3] else 0 }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div id="stockInfo" class="form-text mt-1"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-calculator me-1"></i>Cantidad *
+                            </label>
+                            <input type="number" name="cantidad" id="cantidad"
+                                   class="form-control" placeholder="0.00"
+                                   min="0.01" step="0.01" required>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <button type="submit" name="accion" value="agregar"
+                                    class="btn btn-primary w-100">
+                                <i class="fas fa-plus me-1"></i>Agregar Material
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Lista de materiales -->
+        {% if pedidos %}
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-list me-2"></i>Materiales del Pedido</span>
+                <form method="POST" class="d-inline">
+                    <button type="submit" name="accion" value="limpiar"
+                            class="btn btn-outline-secondary btn-sm"
+                            onclick="return confirm('¿Limpiar toda la lista?')">
+                        <i class="fas fa-eraser me-1"></i>Limpiar Lista
+                    </button>
+                </form>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>CD1</th><th>CD2</th><th>Descripción</th>
+                                <th class="text-end">Cantidad</th>
+                                <th class="text-center">Stock</th>
+                                <th class="text-center">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in pedidos %}
+                            <tr>
+                                <td><code>{{ item.cd1 }}</code></td>
+                                <td><code>{{ item.cd2 }}</code></td>
+                                <td>{{ item.descripcion }}</td>
+                                <td class="text-end"><strong>{{ item.cantidad }}</strong></td>
+                                <td class="text-center">
+                                    {% set s = item.stock|float %}
+                                    {% set c = item.cantidad|float %}
+                                    {% if s >= c %}
+                                        <span class="badge bg-success"><i class="fas fa-check me-1"></i>{{ item.stock }}</span>
+                                    {% elif s > 0 %}
+                                        <span class="badge bg-warning text-dark"><i class="fas fa-exclamation-triangle me-1"></i>{{ item.stock }}</span>
+                                    {% else %}
+                                        <span class="badge bg-danger"><i class="fas fa-times me-1"></i>Sin stock</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <form method="POST" class="d-inline"
+                                          onsubmit="return confirm('¿Eliminar este material?')">
+                                        <input type="hidden" name="index" value="{{ loop.index0 }}">
+                                        <button type="submit" name="accion" value="eliminar"
+                                                class="btn btn-danger btn-sm"
+                                                data-bs-toggle="tooltip" title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-light">
+                                <td colspan="3" class="text-end fw-semibold">Total:</td>
+                                <td colspan="3"><strong>{{ pedidos|length }} ítem(s)</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">No hay materiales en la lista</h5>
+                <p class="text-muted mb-0">Seleccione un material y agréguelo con el formulario de arriba.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Panel lateral -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-info-circle me-2"></i>Información del Pedido
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-map-marker-alt me-1"></i>Distrito
+                        </label>
+                        <input type="text" name="distrito" class="form-control"
+                               value="FORMOSA" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-hard-hat me-1"></i>Obra / Proyecto
+                            <small class="text-muted fw-normal">(opcional)</small>
+                        </label>
+                        <input type="text" name="obra" class="form-control"
+                               placeholder="Nombre de la obra o proyecto">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">
+                            <i class="fas fa-comment me-1"></i>Observaciones
+                        </label>
+                        <textarea name="observaciones" class="form-control" rows="3"
+                                  placeholder="Observaciones generales del pedido"></textarea>
+                    </div>
+                    <button type="submit" name="accion" value="subir"
+                            class="btn btn-success w-100"
+                            {% if not pedidos %}disabled{% endif %}
+                            onclick="return confirm('¿Confirmar y guardar este pedido?')">
+                        <i class="fas fa-cloud-upload-alt me-1"></i>Guardar Pedido
+                    </button>
+                    {% if not pedidos %}
+                    <small class="d-block text-center text-muted mt-2">
+                        <i class="fas fa-info-circle me-1"></i>Agregue materiales para habilitar
+                    </small>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-lightbulb text-warning me-1"></i>Ayuda Rápida
+                </h6>
+                <ul class="small mb-0 ps-3">
+                    <li>Use el selector para buscar materiales por código o descripción</li>
+                    <li>Verifique el stock disponible antes de agregar</li>
+                    <li>Puede eliminar ítems antes de guardar</li>
+                    <li>Complete la información adicional si corresponde</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#material').select2({
+        theme: 'bootstrap-5',
+        placeholder: '-- Busque por código o descripción --',
+        allowClear: true,
+        width: '100%'
+    });
+
+    $('#material').on('change', function() {
+        var stock = $(this).find(':selected').data('stock');
+        if (stock !== undefined && $(this).val()) {
+            var cls  = stock > 0 ? 'text-success' : 'text-danger';
+            var icon = stock > 0 ? 'check-circle' : 'times-circle';
+            $('#stockInfo').html('<i class="fas fa-' + icon + ' ' + cls + ' me-1"></i>Stock disponible: <strong>' + stock + '</strong>');
+            $('#cantidad').focus();
+        } else {
+            $('#stockInfo').html('');
+        }
+        $('#cantidad').val('');
+    });
+
+    $('#formAgregar').on('submit', function(e) {
+        var accion = $('button[type=submit]:focus').val();
+        if (accion === 'agregar') {
+            var stock = parseFloat($('#material').find(':selected').data('stock') || 0);
+            var cant  = parseFloat($('#cantidad').val() || 0);
+            if (cant > stock && stock > 0) {
+                if (!confirm('La cantidad solicitada (' + cant + ') supera el stock disponible (' + stock + ').\n\n¿Desea continuar de todas formas?')) {
+                    e.preventDefault();
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

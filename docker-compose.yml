@@ -1,0 +1,58 @@
+services:
+  web:
+    build: .
+    container_name: almacenes_web
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env
+    volumes:
+      - .:/app
+
+#  celltrack-backend: # 💡 Nuevo backend para login/autenticación
+#    build:
+#      dockerfile: Dockerfile
+#      context: ./celltrack2/backend
+#    ports:
+#      - "3001:3001"
+#      - "3000:80"   # Accederás al login por http://localhost:3000
+#    environment:
+#      MYSQL_HOST: 192.168.0.7
+#      MYSQL_USER: celltrack
+#      MYSQL_PASSWORD: RefsaCell
+#      MYSQL_DB: celltrack
+#    restart: always
+#    
+#  celltrack-frontend:
+#    build:
+#      context: ./celltrack2/frontend
+#      dockerfile: Dockerfile
+#    ports:
+#      - "3000:80"   # Accederás al login por http://localhost:3000
+#    restart: always
+
+
+#  backend: # Servicio para el backend de Node.js y Express
+#    build:
+#      context: ./backend # Ruta al directorio del Dockerfile del backend
+#      dockerfile: Dockerfile
+#    ports:
+#      - "3001:3001" # Expone el puerto del backend
+#    environment: # Variables de entorno para la conexión a la base de datos
+#      MYSQL_HOST: 192.168.0.7 # La IP del servicio de la base de datos
+#      MYSQL_USER: celltrack
+#      MYSQL_PASSWORD: RefsaCell
+#      MYSQL_DB: celltrac
+#    depends_on:
+#      - web # El backend depende del servicio web (Flask), ajusta según tus dependencias reales
+#    restart: always
+
+#  chatflow: # Cambiando el nombre para evitar confusión, asumiendo que este es el frontend
+#    build:
+#      context: ./chatflow
+#      dockerfile: Dockerfile # Asegúrate de que este Dockerfile sea para el frontend
+#    ports:
+#      - "3000:80"  # Puerto para el frontend
+#    volumes:
+#      - ./chatflow:/app
+#    restart: always
+

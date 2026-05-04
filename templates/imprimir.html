@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Imprimir Vales — REFSA{% endblock %}
+
+{% block extra_css %}
+<style>
+.badge-auth-0  { background: #6c757d; }
+.badge-auth-1  { background: #fd7e14; }
+.badge-auth-2  { background: #ffc107; color: #000; }
+.badge-auth-3  { background: #0dcaf0; color: #000; }
+.badge-auth-4  { background: #198754; }
+.filter-input  { max-width: 280px; }
+.tbl-imprimir td, .tbl-imprimir th { vertical-align: middle; font-size: .875rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mt-3">
+    <div class="col-12">
+        <h2 class="mb-4" style="color:var(--refsa-blue);">
+            <i class="fas fa-print me-2"></i>Imprimir Vales
+        </h2>
+    </div>
+</div>
+
+<ul class="nav nav-tabs mb-0" id="tabImprimir" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-pim-btn"
+                data-bs-toggle="tab" data-bs-target="#tab-pim"
+                type="button" role="tab">
+            <i class="fas fa-file-pdf me-1 text-primary"></i>
+            Pedidos Internos (PIM)
+            <span class="badge bg-secondary ms-1">{{ pims|length }}</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-retiro-btn"
+                data-bs-toggle="tab" data-bs-target="#tab-retiro"
+                type="button" role="tab">
+            <i class="fas fa-dolly me-1 text-success"></i>
+            Vales de Retiro
+            <span class="badge bg-secondary ms-1">{{ retiros|length }}</span>
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content border border-top-0 rounded-bottom bg-white p-3" id="tabImprimirContent">
+
+    <!-- ── PIM ───────────────────────────────────────────────── -->
+    <div class="tab-pane fade show active" id="tab-pim" role="tabpanel">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <span class="text-muted small">
+                Sus últimos {{ pims|length }} pedido(s) — haga clic en <i class="fas fa-print"></i> para generar el PDF.
+            </span>
+            <input type="search" id="filtroPim" class="form-control form-control-sm filter-input"
+                   placeholder="Filtrar por Nro. o fecha…" autocomplete="off">
+        </div>
+
+        {% if pims %}
+        <div class="table-responsive">
+            <table class="table table-hover table-sm tbl-imprimir mb-0" id="tablaPim">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:90px">Nro. PIM</th>
+                        <th style="width:100px">Fecha</th>
+                        <th style="width:70px" class="text-center">Ítems</th>
+                        <th>Estado autorización</th>
+                        <th style="width:110px" class="text-center">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in pims %}
+                    <tr>
+                        <td><strong>{{ p.id }}</strong></td>
+                        <td>{{ p.fecha }}</td>
+                        <td class="text-center">
+                            <span class="badge bg-secondary">{{ p.total }}</span>
+                        </td>
+                        <td>
+                            {% set aid = p.auth_id %}
+                            <span class="badge badge-auth-{{ aid }} text-white">
+                                {% if aid == 0 %}Sin autorización
+                                {% elif aid == 1 %}Pend. Sub-Gerencia
+                                {% elif aid == 2 %}Pend. Gerencia
+                                {% elif aid == 3 %}Aut. Sub-Gerencia
+                                {% elif aid == 4 %}Autorizado
+                                {% else %}{{ p.auth_texto }}{% endif %}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <a href="/imprimir_pim/{{ p.id }}" target="_blank"
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-print me-1"></i>Imprimir
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fas fa-inbox fa-3x mb-3"></i>
+            <p class="mb-0">No tiene Pedidos Internos registrados.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ── Retiros ────────────────────────────────────────────── -->
+    <div class="tab-pane fade" id="tab-retiro" role="tabpanel">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <span class="text-muted small">
+                Sus últimos {{ retiros|length }} retiro(s) — haga clic en <i class="fas fa-print"></i> para generar el PDF.
+            </span>
+            <input type="search" id="filtroRetiro" class="form-control form-control-sm filter-input"
+                   placeholder="Filtrar por Nro., sector o fecha…" autocomplete="off">
+        </div>
+
+        {% if retiros %}
+        <div class="table-responsive">
+            <table class="table table-hover table-sm tbl-imprimir mb-0" id="tablaRetiro">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:90px">Nro. Retiro</th>
+                        <th style="width:100px">Fecha</th>
+                        <th>Retira</th>
+                        <th>Sector destino</th>
+                        <th style="width:70px" class="text-center">Ítems</th>
+                        <th style="width:110px" class="text-center">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in retiros %}
+                    <tr>
+                        <td><strong>{{ r.id }}</strong></td>
+                        <td>{{ r.fecha }}</td>
+                        <td>{{ r.retira }}</td>
+                        <td>{{ r.sector }}</td>
+                        <td class="text-center">
+                            <span class="badge bg-secondary">{{ r.total }}</span>
+                        </td>
+                        <td class="text-center">
+                            <a href="/imprimir_retiro/{{ r.id }}" target="_blank"
+                               class="btn btn-sm btn-outline-success">
+                                <i class="fas fa-print me-1"></i>Imprimir
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fas fa-inbox fa-3x mb-3"></i>
+            <p class="mb-0">No tiene Vales de Retiro registrados.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filtrarTabla(inputId, tablaId) {
+    document.getElementById(inputId).addEventListener('input', function() {
+        var q = this.value.trim().toLowerCase();
+        document.querySelectorAll('#' + tablaId + ' tbody tr').forEach(function(tr) {
+            tr.style.display = !q || tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+    });
+}
+filtrarTabla('filtroPim',    'tablaPim');
+filtrarTabla('filtroRetiro', 'tablaRetiro');
+</script>
+{% endblock %}

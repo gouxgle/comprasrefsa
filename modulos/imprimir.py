@@ -1,0 +1,487 @@
+# modulos/imprimir.py
+from flask import Blueprint, render_template, session, make_response
+from conexiones import cursor, check_connection, conn, conn_almacenes, cursor_almacenes
+from modulos.utils import login_requerido
+from io import BytesIO
+
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable, Image, KeepTogether
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib import colors
+from reportlab.lib.units import cm
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+
+imprimir_bp = Blueprint('imprimir', __name__)
+
+conn, cursor = check_connection(conn, cursor, 'comun')
+conn_almacenes, cursor_almacenes = check_connection(conn_almacenes, cursor_almacenes, 'almacenes')
+
+
+@imprimir_bp.route('/imprimir')
+@login_requerido
+def imprimir():
+    global conn, cursor, conn_almacenes, cursor_almacenes
+    conn, cursor = check_connection(conn, cursor, 'comun')
+    conn_almacenes, cursor_almacenes = check_connection(conn_almacenes, cursor_almacenes, 'almacenes')
+
+    usuario_id = session.get('id')
+
+    cursor_almacenes.execute("""
+        SELECT p.idpedidovirtual, p.fecha, COUNT(d.renglon) AS total_items,
+               p.autorizacion AS auth_id, a.autorizacion AS auth_texto
+        FROM almacenes.pedidosvirtuales p
+        LEFT JOIN almacenes.detallespedidosvirtuales d
+               ON d.idpedidovirtual = p.idpedidovirtual
+        LEFT JOIN almacenes.autorizaciones a
+               ON a.idautorizacion = p.autorizacion
+        WHERE p.quienpidio = %s
+        GROUP BY p.idpedidovirtual, p.fecha, p.autorizacion, a.autorizacion
+        ORDER BY p.idpedidovirtual DESC
+        LIMIT 100
+    """, (usuario_id,))
+    pims = [
+        {
+            'id':         r[0],
+            'fecha':      r[1].strftime('%d/%m/%Y') if r[1] else '',
+            'total':      r[2],
+            'auth_id':    r[3],
+            'auth_texto': r[4] or '',
+        }
+        for r in cursor_almacenes.fetchall()
+    ]
+
+    cursor_almacenes.execute("""
+        SELECT r.idretiro, r.fechapedido,
+               COALESCE(op.DescOperario, '') AS nombre_retira,
+               j.jefatura AS sector_nombre,
+               COUNT(d.renglon) AS total_items
+        FROM almacenes.retiromateriales r
+        LEFT JOIN almacenes.detallesretiromateriales d
+               ON d.idretiro = r.idretiro
+        LEFT JOIN comun.operarios op
+               ON op.IdOperario = r.quienretiro
+        LEFT JOIN comun.jefaturas j
+               ON j.idjefatura = r.destino
+        WHERE r.quienpidio = %s
+        GROUP BY r.idretiro, r.fechapedido, op.DescOperario, j.jefatura
+        ORDER BY r.idretiro DESC
+        LIMIT 100
+    """, (usuario_id,))
+    retiros = [
+        {
+            'id':      r[0],
+            'fecha':   r[1].strftime('%d/%m/%Y') if r[1] else '',
+            'retira':  r[2],
+            'sector':  r[3] or '',
+            'total':   r[4],
+        }
+        for r in cursor_almacenes.fetchall()
+    ]
+
+    return render_template(
+        'imprimir.html',
+        usuario=session['usuario'],
+        pims=pims,
+        retiros=retiros,
+    )
+
+
+def _build_pim_pdf(id_pedido):
+    """Genera el PDF de un PIM en A4 apaisado replicando el formato FoxPro."""
+    global conn, cursor
+    conn, cursor = check_connection(conn, cursor, 'comun')
+
+    # ── Cabecera del pedido ──────────────────────────────────
+    cursor.execute("""
+        SELECT p.idpedidovirtual, p.fecha, p.quienpidio, p.jefatura,
+               o.DescOperario
+        FROM almacenes.pedidosvirtuales p
+        LEFT JOIN comun.operarios o ON o.IdOperario = p.quienpidio
+        WHERE p.idpedidovirtual = %s
+    """, (id_pedido,))
+    cab = cursor.fetchone()
+    if not cab:
+        return None
+
+    id_pim, fecha_pedido, quienpidio, jefatura, desc_operario = cab
+
+    # ── Ítems del pedido ─────────────────────────────────────
+    cursor.execute("""
+        SELECT d.renglon, d.cd1, d.cd2, d.cantidad,
+               COALESCE(m.material, CONCAT(d.cd1,'-',d.cd2)) AS material,
+               COALESCE(m.unidad, 'C/U') AS unidad,
+               d.destino
+        FROM almacenes.detallespedidosvirtuales d
+        LEFT JOIN almacenes.materiales m ON m.cd1 = d.cd1 AND m.cd2 = d.cd2
+        WHERE d.idpedidovirtual = %s
+        ORDER BY d.renglon
+    """, (id_pedido,))
+    items = cursor.fetchall()
+
+    # ── Construcción PDF ─────────────────────────────────────
+    buf = BytesIO()
+
+    def st(name, size=7, align=TA_LEFT, bold=False):
+        fn = 'Courier-Bold' if bold else 'Courier'
+        return ParagraphStyle(name, fontName=fn, fontSize=size,
+                              alignment=align, leading=size + 2)
+
+    mono7  = st('pm7')
+    tdc    = st('ptdc', align=TA_CENTER)
+    tdl    = st('ptdl')
+    th     = st('pth',  align=TA_CENTER, bold=True)
+
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4),
+                            leftMargin=1.5*cm, rightMargin=1.5*cm,
+                            topMargin=1.5*cm, bottomMargin=1.5*cm)
+    W = doc.width   # ~756 pt (≈26.7 cm) en A4 apaisado
+
+    fecha_str = fecha_pedido.strftime('%d/%m/%Y') if fecha_pedido else ''
+
+    # ── Encabezado (3 columnas) ───────────────────────────────
+    empresa = Paragraph(
+        'R.E.F.S.A.<br/>Av. Gorleri 580<br/>(P3600CAS)FORMOSA CAPITAL<br/>'
+        'TEL/FAX (+54-370) 443-9800<br/>C.U.I.T. 30-70.966.875-3',
+        mono7)
+
+    titulo = Paragraph(
+        '<b>PEDIDO DE MATERIALES</b><br/><br/>'
+        f'<b><font size="14">Nro.:&nbsp;&nbsp;&nbsp;&nbsp;{id_pim}</font></b>',
+        ParagraphStyle('ptit', fontName='Courier-Bold', fontSize=11,
+                       alignment=TA_CENTER, leading=14))
+
+    # Caja derecha: "Lugar y Fecha" arriba + "Hoja Nº:" arriba-derecha + localidad/fecha abajo
+    rw = W * 0.28 - 8   # ancho disponible dentro de la celda derecha
+    right_inner = Table([
+        [Paragraph('<b>Lugar y Fecha</b>',
+                   ParagraphStyle('plf', fontName='Courier-Bold', fontSize=7,
+                                  alignment=TA_LEFT, leading=9)),
+         Paragraph(f'<b>Hoja Nº:</b>&nbsp;&nbsp;1/1',
+                   ParagraphStyle('phn', fontName='Courier-Bold', fontSize=7,
+                                  alignment=TA_RIGHT, leading=9))],
+        [Paragraph('FORMOSA',
+                   ParagraphStyle('ploc', fontName='Courier', fontSize=8,
+                                  alignment=TA_CENTER, leading=10)), ''],
+        [Paragraph(fecha_str,
+                   ParagraphStyle('pfec', fontName='Courier', fontSize=8,
+                                  alignment=TA_CENTER, leading=10)), ''],
+    ], colWidths=[rw * 0.58, rw * 0.42])
+    right_inner.setStyle(TableStyle([
+        ('SPAN',         (0, 1), (1, 1)),
+        ('SPAN',         (0, 2), (1, 2)),
+        ('LINEBELOW',    (0, 0), (1, 0), 0.4, colors.black),
+        ('TOPPADDING',   (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING',(0, 0), (-1, -1), 1),
+        ('LEFTPADDING',  (0, 0), (-1, -1), 2),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+    ]))
+
+    encabezado = Table(
+        [[empresa, titulo, right_inner]],
+        colWidths=[W * 0.32, W * 0.40, W * 0.28]
+    )
+    encabezado.setStyle(TableStyle([
+        ('BOX',          (0, 0), (0, 0), 0.75, colors.black),
+        ('BOX',          (1, 0), (1, 0), 0.75, colors.black),
+        ('BOX',          (2, 0), (2, 0), 0.75, colors.black),
+        ('VALIGN',       (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',   (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING',(0, 0), (-1, -1), 5),
+        ('LEFTPADDING',  (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+    ]))
+
+    # ── Tabla de ítems ────────────────────────────────────────
+    # Item | Cantidad | Existencia | Unid. | Codigo | Descripcion | Destino | Fecha Necesidad | PD
+    cw = [W*0.04, W*0.07, W*0.07, W*0.05, W*0.10, W*0.44, W*0.09, W*0.09, W*0.05]
+    filas = [[
+        Paragraph('Item',             th),
+        Paragraph('Cantidad',         th),
+        Paragraph('Existencia',       th),
+        Paragraph('Unid.',            th),
+        Paragraph('Codigo',           th),
+        Paragraph('Descripcion',      th),
+        Paragraph('Destino',          th),
+        Paragraph('Fecha\nNecesidad', th),
+        Paragraph('PD',               th),
+    ]]
+
+    pd_str = str(quienpidio) if quienpidio else ''
+    for renglon, cd1, cd2, cantidad, material, unidad, destino in items:
+        cant_fmt = f'{float(cantidad):.2f}'.replace('.', ',')
+        filas.append([
+            Paragraph(str(renglon),              tdc),
+            Paragraph(cant_fmt,                  tdc),
+            Paragraph('',                        tdc),
+            Paragraph(unidad or '',              tdc),
+            Paragraph(f'{cd1}-{cd2}',            tdc),
+            Paragraph(material,                  tdl),
+            Paragraph(str(destino) if destino else '', tdc),
+            Paragraph('',                        tdc),
+            Paragraph(pd_str,                    tdc),
+        ])
+
+    N_DATA = 18
+    while len(filas) < N_DATA + 1:
+        filas.append([Paragraph('', tdc)] * 9)
+
+    # Alturas fijas para llenar la página: encabezado de tabla + N_DATA filas de datos
+    # A4 apaisado: ~510pt disponibles − encabezado (~65pt) − spacers (17pt) − pie (~50pt) ≈ 378pt
+    # 1 fila header (18pt) + 18 filas datos (20pt) = 18 + 360 = 378pt ✓
+    rh = [18] + [20] * N_DATA
+    tabla_items = Table(filas, colWidths=cw, rowHeights=rh, repeatRows=1)
+    tabla_items.setStyle(TableStyle([
+        ('BOX',          (0, 0), (-1, -1), 0.75, colors.black),
+        ('LINEBELOW',    (0, 0), (-1,  0), 0.75, colors.black),   # borde bajo cabecera
+        ('LINEAFTER',    (0, 0), (7,  -1), 0.4,  colors.black),   # separadores verticales
+        ('FONTNAME',     (0, 0), (-1,  0), 'Courier-Bold'),
+        ('ALIGN',        (0, 0), (-1, -1), 'CENTER'),
+        ('ALIGN',        (5, 1), (5,  -1), 'LEFT'),
+        ('VALIGN',       (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',   (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING',(0, 0), (-1, -1), 2),
+        ('LEFTPADDING',  (0, 0), (-1, -1), 2),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+    ]))
+
+    # ── Pie de firmas ─────────────────────────────────────────
+    pie_s   = ParagraphStyle('pps',  fontName='Courier-Bold', fontSize=7,
+                             alignment=TA_CENTER, leading=10)
+    pie_obs = ParagraphStyle('ppo',  fontName='Courier',      fontSize=7,
+                             alignment=TA_LEFT,   leading=10)
+
+    pie = Table([[
+        Paragraph('ALMACENES<br/>FECHA<br/>/ /',  pie_s),
+        Paragraph('PREPARO<br/>FECHA<br/>/ /',    pie_s),
+        Paragraph('AUTORIZO<br/>FECHA<br/>/ /',   pie_s),
+        Paragraph('P/COMPRAS<br/>FECHA<br/>/ /',  pie_s),
+        Paragraph(
+            'OBSERVACIONES: ......................................<br/>'
+            '.....................................................<br/>'
+            '.....................................................',
+            pie_obs),
+    ]], colWidths=[W*0.12, W*0.12, W*0.12, W*0.12, W*0.52])
+    pie.setStyle(TableStyle([
+        ('BOX',          (0, 0), (-1, -1), 0.75, colors.black),
+        ('INNERGRID',    (0, 0), (-1, -1), 0.5,  colors.black),
+        ('VALIGN',       (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING',   (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING',(0, 0), (-1, -1), 4),
+        ('LEFTPADDING',  (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+    ]))
+
+    doc.build([encabezado, Spacer(1, 0.3*cm), tabla_items, Spacer(1, 0.3*cm), pie])
+    buf.seek(0)
+    return buf
+
+
+@imprimir_bp.route('/imprimir_pim/<int:id_pedido>')
+@login_requerido
+def imprimir_pim(id_pedido):
+    buf = _build_pim_pdf(id_pedido)
+    if buf is None:
+        return "Pedido no encontrado", 404
+    nro = str(id_pedido).zfill(4)
+    response = make_response(buf.read())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=PIM-{nro}.pdf'
+    return response
+
+
+def _build_retiro_pdf(id_retiro):
+    """Genera el PDF de un Vale de Retiro en A4 vertical replicando el formato FoxPro."""
+    global conn, cursor, conn_almacenes, cursor_almacenes
+    conn, cursor = check_connection(conn, cursor, 'comun')
+    conn_almacenes, cursor_almacenes = check_connection(conn_almacenes, cursor_almacenes, 'almacenes')
+
+    cursor_almacenes.execute("""
+        SELECT r.idretiro, r.fechapedido,
+               r.ubicacion, r.detalles,
+               j1.jefatura AS sector_nombre,
+               j2.jefatura AS destino_nombre,
+               op_pide.DescOperario AS realizada_por
+        FROM almacenes.retiromateriales r
+        LEFT JOIN comun.jefaturas j1  ON j1.idjefatura   = r.sector
+        LEFT JOIN comun.jefaturas j2  ON j2.idjefatura   = r.destino
+        LEFT JOIN comun.operarios op_pide ON op_pide.IdOperario = r.quienpidio
+        WHERE r.idretiro = %s
+    """, (id_retiro,))
+    cab = cursor_almacenes.fetchone()
+    if not cab:
+        return None
+
+    id_ret, fecha_ret, ubicacion, detalles, sector_nombre, destino_nombre, realizada_por = cab
+
+    cursor_almacenes.execute("""
+        SELECT d.renglon, d.cd1, d.cd2, d.cantidadpedida,
+               COALESCE(m.material, CONCAT(d.cd1,' ',d.cd2)) AS material
+        FROM almacenes.detallesretiromateriales d
+        LEFT JOIN almacenes.materiales m ON m.cd1 = d.cd1 AND m.cd2 = d.cd2
+        WHERE d.idretiro = %s
+        ORDER BY d.renglon
+    """, (id_retiro,))
+    items = cursor_almacenes.fetchall()
+
+    buf = BytesIO()
+
+    def st(name, size=8, align=TA_LEFT, bold=False):
+        fn = 'Courier-Bold' if bold else 'Courier'
+        return ParagraphStyle(name, fontName=fn, fontSize=size,
+                              alignment=align, leading=size + 3)
+
+    mono8  = st('vm8')
+    mono8r = st('vm8r', align=TA_RIGHT)
+    th     = st('vth',  align=TA_CENTER, bold=True)
+    tdc    = st('vtdc', align=TA_CENTER)
+    tdl    = st('vtdl')
+    tdr    = st('vtdr', align=TA_RIGHT)
+
+    _np = TableStyle([                            # sin relleno
+        ('TOPPADDING',    (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 0),
+    ])
+
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                            leftMargin=1.5*cm, rightMargin=1.5*cm,
+                            topMargin=1.5*cm, bottomMargin=1.5*cm)
+    W = doc.width   # ~510pt en A4 vertical
+
+    fecha_str    = fecha_ret.strftime('%d/%m/%Y') if fecha_ret else ''
+    sector_str   = (sector_nombre  or '').lower()
+    destino_str  = (destino_nombre or '')
+    ubic_str     = (ubicacion      or '').upper()
+    realiza_str  = (realizada_por  or '').strip().upper()
+
+    # ── Bloque superior: logo + Fecha ────────────────────────────────────────
+    try:
+        logo = Image('/app/static/Logo_REFSA.jpg', height=28, width=28)
+    except Exception:
+        logo = Paragraph('', mono8)
+
+    hdr_top = Table(
+        [[logo, Paragraph(f'Fecha:{fecha_str}', mono8r)]],
+        colWidths=[W * 0.65, W * 0.35]
+    )
+    hdr_top.setStyle(_np)
+
+    hdr_refsa = Paragraph(
+        '<b>REFSA</b>',
+        ParagraphStyle('vrefsa', fontName='Courier-Bold', fontSize=11, leading=13))
+
+    # ── Líneas de info ────────────────────────────────────────────────────────
+    orden_row = Table([[
+        Paragraph(f'N° Orden de Retiro de Materiales:   {id_ret}', mono8),
+        Paragraph(f'Realizada por:{realiza_str}', mono8),
+    ]], colWidths=[W * 0.52, W * 0.48])
+    orden_row.setStyle(_np)
+
+    dest_row = Table([[
+        Paragraph(f'Destino: {destino_str}', mono8),
+        Paragraph(f'Ubicacion: {ubic_str}', mono8),
+    ]], colWidths=[W * 0.52, W * 0.48])
+    dest_row.setStyle(_np)
+
+    sector_row = Table([[
+        Paragraph(f'Sector: {sector_str}', mono8),
+        Paragraph('Operario:', mono8),
+    ]], colWidths=[W * 0.52, W * 0.48])
+    sector_row.setStyle(_np)
+
+    # ── Tabla de ítems ────────────────────────────────────────────────────────
+    # Cols: # | Codigo | Material | Cantidad
+    # Altura: ~756pt total − cabecera (~92pt) − pie (~58pt) − spacers (~7pt) = ~599pt
+    # Fila header 16pt + 20 filas × 29pt = 16 + 580 = 596pt ✓
+    cw = [W * 0.05, W * 0.12, W * 0.71, W * 0.12]
+
+    filas = [[
+        Paragraph('#',        th),
+        Paragraph('Codigo',   th),
+        Paragraph('Material', th),
+        Paragraph('Cantidad', th),
+    ]]
+
+    for renglon, cd1, cd2, cant_ped, material in items:
+        cant_fmt = f'{float(cant_ped):.2f}'.replace('.', ',')
+        filas.append([
+            Paragraph(str(renglon),   tdc),
+            Paragraph(f'{cd1} {cd2}', tdc),
+            Paragraph(material,       tdl),
+            Paragraph(cant_fmt,       tdr),
+        ])
+
+    N_DATA = 30
+    while len(filas) < N_DATA + 1:
+        filas.append([Paragraph('', tdc)] * 4)
+
+    rh = [16] + [18] * N_DATA
+    tabla = Table(filas, colWidths=cw, rowHeights=rh, repeatRows=1)
+    tabla.setStyle(TableStyle([
+        ('BOX',          (0, 0), (-1, -1), 0.75, colors.black),
+        ('LINEBELOW',    (0, 0), (-1,  0), 0.75, colors.black),   # borde bajo cabecera
+        ('LINEAFTER',    (0, 0), (2,  -1), 0.4,  colors.black),   # separadores verticales
+        ('FONTNAME',     (0, 0), (-1,  0), 'Courier-Bold'),
+        ('ALIGN',        (0, 0), (1,  -1), 'CENTER'),
+        ('ALIGN',        (2, 1), (2,  -1), 'LEFT'),
+        ('ALIGN',        (3, 0), (3,  -1), 'RIGHT'),
+        ('VALIGN',       (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',   (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING',(0, 0), (-1, -1), 2),
+        ('LEFTPADDING',  (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+    ]))
+
+    # ── Pie de firmas ─────────────────────────────────────────────────────────
+    pie_s = ParagraphStyle('vps', fontName='Courier-Bold', fontSize=8,
+                           alignment=TA_CENTER, leading=10)
+    pie_f = ParagraphStyle('vpf', fontName='Courier',      fontSize=7,
+                           alignment=TA_LEFT,   leading=10)
+
+    pie = Table([
+        [Paragraph('ALMACENES',      pie_s),
+         Paragraph('JEFE',           pie_s),
+         Paragraph('RECIBI CONFORME',pie_s)],
+        [Paragraph('Firma.........................<br/>Aclaracion...................', pie_f),
+         Paragraph('Firma.........................<br/>Aclaracion...................', pie_f),
+         Paragraph('Firma.........................<br/>Aclaracion...................', pie_f)],
+    ], colWidths=[W / 3, W / 3, W / 3], rowHeights=[16, 40])
+    pie.setStyle(TableStyle([
+        ('BOX',          (0, 0), (-1, -1), 0.75, colors.black),
+        ('LINEAFTER',    (0, 0), (1,  -1), 0.5,  colors.black),
+        ('LINEBELOW',    (0, 0), (-1,  0), 0.5,  colors.black),
+        ('VALIGN',       (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING',   (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING',(0, 0), (-1, -1), 4),
+        ('LEFTPADDING',  (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+    ]))
+
+    doc.build([
+        hdr_top,
+        hdr_refsa,
+        orden_row,
+        dest_row,
+        HRFlowable(width='100%', thickness=0.75, color=colors.black,
+                   spaceBefore=2, spaceAfter=2),
+        sector_row,
+        Spacer(1, 0.12*cm),
+        tabla,
+        KeepTogether([Spacer(1, 0.12*cm), pie]),
+    ])
+    buf.seek(0)
+    return buf
+
+
+@imprimir_bp.route('/imprimir_retiro/<int:id_retiro>')
+@login_requerido
+def imprimir_retiro(id_retiro):
+    buf = _build_retiro_pdf(id_retiro)
+    if buf is None:
+        return "Retiro no encontrado", 404
+    nro = str(id_retiro).zfill(4)
+    response = make_response(buf.read())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=Retiro-{nro}.pdf'
+    return response

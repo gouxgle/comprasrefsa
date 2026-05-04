@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Panel Principal — Sistema de Almacenes REFSA{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card-destacado {
+        background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
+        border-radius: .75rem;
+        padding: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 4px 16px rgba(13,71,161,.3);
+        text-decoration: none;
+        transition: transform .15s, box-shadow .15s;
+        color: white;
+        border: none;
+    }
+    .card-destacado:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 24px rgba(13,71,161,.45);
+        color: white;
+    }
+    .card-destacado h2 { font-size: 1.6rem; font-weight: 800; margin: 0; }
+    .card-destacado p  { margin: .3rem 0 0; opacity: .8; font-size: .9rem; }
+    .card-destacado .icono { font-size: 3rem; opacity: .45; }
+    .card-menu {
+        border-radius: .6rem;
+        text-decoration: none;
+        color: #333;
+        transition: transform .15s, box-shadow .15s, border-color .15s;
+        border: 1px solid #e0e4ea;
+    }
+    .card-menu:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 14px rgba(0,0,0,.12);
+        border-color: #0d47a1;
+        color: #333;
+    }
+    .card-icono {
+        width: 48px; height: 48px;
+        border-radius: .5rem;
+        background: #e3f2fd;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.4rem;
+        color: #0d47a1;
+        flex-shrink: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Bienvenida -->
+<div class="alert alert-primary border-start border-4 border-primary bg-white mt-3 py-3" role="alert" style="border-radius:.5rem;">
+    <i class="fas fa-hand-wave me-2"></i>
+    Bienvenido, <strong>{{ usuario }}</strong>
+</div>
+
+<!-- Acceso principal: Retiro -->
+<p class="text-muted small fw-semibold text-uppercase letter-spacing mb-2">
+    <i class="fas fa-bolt me-1"></i>Acceso rápido
+</p>
+
+<a href="{{ url_for('retiro.retiro_materiales') }}" class="card-destacado d-flex mb-4">
+    <div>
+        <h2><i class="fas fa-dolly me-2"></i>Retiro de Materiales</h2>
+        <p>Registrar salida de materiales del almacén</p>
+    </div>
+    <div class="icono"><i class="fas fa-boxes"></i></div>
+</a>
+
+<!-- Otras opciones -->
+<p class="text-muted small fw-semibold text-uppercase mb-2">
+    Otras opciones
+</p>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <a href="{{ url_for('pedidos.pedido_interno') }}" class="card card-menu p-3 d-flex flex-row align-items-center gap-3 h-100">
+            <div class="card-icono"><i class="fas fa-file-alt"></i></div>
+            <div>
+                <div class="fw-bold">Pedido Interno (PIM)</div>
+                <small class="text-muted">Generar solicitud de materiales</small>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a href="{{ url_for('estado.estado_pedido') }}" class="card card-menu p-3 d-flex flex-row align-items-center gap-3 h-100">
+            <div class="card-icono"><i class="fas fa-search"></i></div>
+            <div>
+                <div class="fw-bold">Estado de Pedido</div>
+                <small class="text-muted">Consultar estado de solicitudes</small>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a href="{{ url_for('imprimir.imprimir') }}" class="card card-menu p-3 d-flex flex-row align-items-center gap-3 h-100">
+            <div class="card-icono"><i class="fas fa-print"></i></div>
+            <div>
+                <div class="fw-bold">Imprimir Vales</div>
+                <small class="text-muted">Generar PDFs de comprobantes</small>
+            </div>
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistema de Almacenes - REFSA{% endblock %}</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --refsa-blue: #0d47a1;
+            --refsa-blue-light: #1976d2;
+            --refsa-blue-lighter: #e3f2fd;
+            --refsa-gray: #f0f2f5;
+        }
+        body { background-color: var(--refsa-gray); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+        .navbar-refsa { background-color: var(--refsa-blue); box-shadow: 0 2px 4px rgba(0,0,0,.15); }
+        .navbar-refsa .navbar-brand { color: white !important; font-weight: 700; }
+        .navbar-refsa .nav-link { color: rgba(255,255,255,.85) !important; transition: all .2s; border-radius: 4px; }
+        .navbar-refsa .nav-link:hover, .navbar-refsa .nav-link.active { color: white !important; background: rgba(255,255,255,.12); }
+        .logo-nav { height: 38px; margin-right: 10px; }
+        .main-content { min-height: calc(100vh - 130px); padding: 2rem 0; }
+        .card { border: 1px solid #dee2e6; border-radius: .5rem; box-shadow: 0 1px 3px rgba(0,0,0,.06); margin-bottom: 1.5rem; }
+        .card-header { background: white; border-bottom: 2px solid var(--refsa-blue-lighter); font-weight: 600; color: var(--refsa-blue); }
+        .btn-primary { background-color: var(--refsa-blue); border-color: var(--refsa-blue); }
+        .btn-primary:hover { background-color: var(--refsa-blue-light); border-color: var(--refsa-blue-light); }
+        .table thead th { background-color: var(--refsa-blue-lighter); color: var(--refsa-blue); font-weight: 600; border-bottom: 2px solid #90caf9; }
+        .alert { border-radius: .5rem; border-left-width: 4px; }
+        footer { background: #343a40; color: #adb5bd; padding: 1.2rem 0; margin-top: 2rem; font-size: .85rem; }
+        .badge-estado-0  { background: #ffc107; color: #333; }
+        .badge-estado-30 { background: #ffc107; color: #333; }
+        .badge-estado-9  { background: #6c757d; color: white; }
+        .badge-estado-32 { background: #198754; color: white; }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-refsa">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('menu_bp.menu_principal') }}">
+                <img src="{{ url_for('static', filename='Logo_REFSA.jpg') }}" alt="REFSA" class="logo-nav">
+                <span>Sistema de Almacenes REFSA</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'retiro.retiro_materiales' %}active{% endif %}"
+                           href="{{ url_for('retiro.retiro_materiales') }}">
+                            <i class="fas fa-dolly"></i> Retiro
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'pedidos.pedido_interno' %}active{% endif %}"
+                           href="{{ url_for('pedidos.pedido_interno') }}">
+                            <i class="fas fa-file-alt"></i> Pedido Interno
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'estado.estado_pedido' %}active{% endif %}"
+                           href="{{ url_for('estado.estado_pedido') }}">
+                            <i class="fas fa-search"></i> Estado
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'imprimir.imprimir' %}active{% endif %}"
+                           href="{{ url_for('imprimir.imprimir') }}">
+                            <i class="fas fa-print"></i> Imprimir
+                        </a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user-circle"></i> {{ session.get('usuario', '') }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <form method="POST" action="{{ url_for('login.login') }}" class="m-0">
+                                    <button type="submit" name="accion" value="cerrar" class="dropdown-item text-danger">
+                                        <i class="fas fa-sign-out-alt"></i> Cerrar sesión
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-content">
+        <div class="container-fluid px-4">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show mt-3">
+                        <i class="fas fa-{% if category == 'success' %}check-circle{% elif category in ('danger','error') %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <footer>
+        <div class="container text-center">
+            <p class="mb-0">&copy; 2026 REFSA — Sistema de Almacenes v2.0</p>
+        </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script>
+        setTimeout(function() { $('.alert').fadeOut('slow'); }, 5000);
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.forEach(function(el) { new bootstrap.Tooltip(el); });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

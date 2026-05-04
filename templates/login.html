@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión — REFSA Almacenes</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --refsa-blue: #0d47a1; --refsa-blue-light: #1976d2; }
+        body {
+            background: linear-gradient(135deg, var(--refsa-blue) 0%, var(--refsa-blue-light) 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container { width: 100%; max-width: 450px; padding: 15px; }
+        .login-card { background: white; border-radius: 1rem; box-shadow: 0 10px 40px rgba(0,0,0,.3); overflow: hidden; }
+        .login-header { padding: 2.5rem 2rem 1.5rem; text-align: center; }
+        .login-logo { max-width: 120px; margin-bottom: 1.5rem; }
+        .login-header h2 { color: var(--refsa-blue); font-weight: 700; font-size: 1.5rem; margin-bottom: .4rem; }
+        .login-header p { color: #6c757d; margin: 0; }
+        .login-body { padding: 2rem; }
+        .input-group-text { background: #f8f9fa; border-right: none; }
+        .form-control { border-left: none; }
+        .form-control:focus { border-color: var(--refsa-blue); box-shadow: 0 0 0 .2rem rgba(13,71,161,.15); }
+        .btn-toggle-password { border-left: none; background: white; border-color: #ced4da; }
+        .btn-login { background-color: var(--refsa-blue); border-color: var(--refsa-blue); padding: .75rem; font-weight: 600; }
+        .btn-login:hover { background-color: var(--refsa-blue-light); border-color: var(--refsa-blue-light); }
+        .help-text { background: #e3f2fd; border-left: 4px solid var(--refsa-blue); padding: 1rem; border-radius: .25rem; margin-top: 1.5rem; font-size: .875rem; }
+        .login-footer { padding: 1.2rem 2rem; background: #f8f9fa; text-align: center; font-size: .85rem; color: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <img src="{{ url_for('static', filename='Logo_REFSA.jpg') }}" alt="Logo REFSA" class="login-logo">
+                <h2>Sistema de Almacenes</h2>
+                <p>REFSA — Redes Energéticas de Formosa SA</p>
+            </div>
+
+            <div class="login-body">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show">
+                          <i class="fas fa-exclamation-circle me-1"></i> {{ message }}
+                          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <form method="POST" action="{{ url_for('login.login') }}">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold"><i class="fas fa-user me-1"></i> Usuario</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-user text-primary"></i></span>
+                            <input type="text" class="form-control" name="usuario" placeholder="Ingrese su usuario" required autofocus>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold"><i class="fas fa-lock me-1"></i> Contraseña</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-lock text-primary"></i></span>
+                            <input type="password" class="form-control" id="clave" name="clave" placeholder="Ingrese su contraseña" required>
+                            <button class="btn btn-toggle-password" type="button" onclick="togglePassword()">
+                                <i class="fas fa-eye" id="toggleIcon"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-login w-100">
+                        <i class="fas fa-sign-in-alt me-1"></i> Iniciar Sesión
+                    </button>
+                </form>
+
+                <div class="help-text">
+                    <i class="fas fa-info-circle me-1"></i>
+                    <strong>Primer ingreso:</strong> la contraseña que ingrese se establecerá automáticamente.
+                </div>
+            </div>
+
+            <div class="login-footer">
+                ¿Problemas para acceder? Contacte al administrador del sistema
+            </div>
+        </div>
+        <div class="text-center mt-3 text-white">
+            <small>&copy; 2026 REFSA — Sistema de Almacenes</small>
+        </div>
+    </div>
+
+    {% if seleccionar_sector %}
+    <!-- Modal selección de sector (Bootstrap 5) -->
+    <div class="modal fade show" id="modalSector" tabindex="-1" style="display:block; background:rgba(0,0,0,.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header" style="background:#0d47a1; color:white;">
+                    <h5 class="modal-title"><i class="fas fa-building me-2"></i>Seleccionar Sector</h5>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Su usuario tiene acceso a más de un sector. Seleccione con cuál desea ingresar:</p>
+                    <div class="d-grid gap-2">
+                        {% for sector in sectores %}
+                        <button class="btn btn-outline-primary btn-lg" onclick="seleccionarSector('{{ sector.id }}')">
+                            <i class="fas fa-layer-group me-2"></i>{{ sector.nombre | upper }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        function seleccionarSector(id) {
+            fetch("/seleccionar_sector", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({ sector: id })
+            }).then(res => res.json()).then(data => {
+                if (data.status === 'ok') {
+                    window.location.href = "{{ url_for('menu_bp.menu_principal') }}";
+                }
+            });
+        }
+    </script>
+    {% endif %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function togglePassword() {
+            const input = document.getElementById('clave');
+            const icon  = document.getElementById('toggleIcon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        }
+        setTimeout(function() {
+            document.querySelectorAll('.alert').forEach(function(a) {
+                a.style.opacity = '0'; setTimeout(function() { a.remove(); }, 300);
+            });
+        }, 5000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Estado de Pedidos — REFSA{% endblock %}
+
+{% block content %}
+<div class="row mt-3">
+    <div class="col-12">
+        <h2 class="mb-4" style="color:var(--refsa-blue);">
+            <i class="fas fa-search me-2"></i>Estado de Pedidos
+        </h2>
+    </div>
+</div>
+
+<!-- Filtro tipo -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="fas fa-filter me-2"></i>Consulta
+    </div>
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Tipo de documento</label>
+                <select id="tipoPedido" class="form-select">
+                    <option value="">-- Seleccionar tipo --</option>
+                    <option value="pim_lista">Pedido Interno (PIM)</option>
+                    <option value="pim">Pedido Interno — detalle de ítems</option>
+                    <option value="retiro">Retiro de Materiales</option>
+                    <option value="transferencia">Transferencias Internas</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <div id="spinner" class="d-none text-primary">
+                    <i class="fas fa-spinner fa-spin me-1"></i>Cargando...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resultados -->
+<div id="resultadosContainer" class="d-none">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span id="tituloResultados">
+                <i class="fas fa-table me-2"></i>Resultados
+            </span>
+            <span id="contadorResultados" class="badge bg-secondary"></span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="tablaPedidos">
+                    <thead>
+                        <tr id="thead-pedidos"></tr>
+                    </thead>
+                    <tbody id="tbody-pedidos"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sin resultados -->
+<div id="sinResultados" class="d-none">
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+            <h5 class="text-muted">No se encontraron registros</h5>
+            <p class="text-muted mb-0">No hay datos disponibles para el tipo seleccionado.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const headersMap = {
+    pim_lista:    ["Nro. PIM", "Fecha", "Ítems", "Acciones"],
+    pim:          ["# PIM", "Material", "Cant. Pedida", "Fecha", "Estado", "Cant. Ingresada", "O.C.", "# O.C."],
+    retiro:       ["# R.M.", "Material", "Cant. Pedida", "F. Pedido", "Estado", "Cant. Entregada", "Entregado por", "Ítem"],
+    transferencia:["Material", "Cantidad"]
+};
+const camposMap = {
+    pim:          ["renglon", "material", "cantidad", "fecharealizpedido", "estado", "cantidadingresada", "ordendecompra", "renglonodc"],
+    retiro:       ["nro_retiro", "material", "cantidad", "fecha", "estado", "cantidadretirada", "quienentrego", "renglon"],
+    transferencia:["material", "cantidad"]
+};
+const titulosMap = {
+    pim_lista:    "Pedidos Internos (PIM)",
+    pim:          "Detalle de PIM",
+    retiro:       "Retiros de Materiales",
+    transferencia:"Transferencias"
+};
+
+document.getElementById('tipoPedido').addEventListener('change', function() {
+    const tipo = this.value;
+    if (!tipo) {
+        document.getElementById('resultadosContainer').classList.add('d-none');
+        document.getElementById('sinResultados').classList.add('d-none');
+        return;
+    }
+
+    document.getElementById('spinner').classList.remove('d-none');
+    document.getElementById('resultadosContainer').classList.add('d-none');
+    document.getElementById('sinResultados').classList.add('d-none');
+
+    fetch('/estado_pedido/detalles?tipo=' + tipo)
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('spinner').classList.add('d-none');
+
+            const thead = document.getElementById('thead-pedidos');
+            const tbody = document.getElementById('tbody-pedidos');
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+
+            // Encabezados
+            headersMap[tipo].forEach(function(h) {
+                var th = document.createElement('th');
+                th.textContent = h;
+                thead.appendChild(th);
+            });
+
+            document.getElementById('tituloResultados').innerHTML =
+                '<i class="fas fa-table me-2"></i>' + titulosMap[tipo];
+
+            if (data.length === 0) {
+                document.getElementById('sinResultados').classList.remove('d-none');
+                return;
+            }
+
+            document.getElementById('contadorResultados').textContent = data.length + ' registro(s)';
+
+            if (tipo === 'pim_lista') {
+                data.forEach(function(row) {
+                    var tr = document.createElement('tr');
+                    tr.innerHTML =
+                        '<td><strong>' + (row.idpedidovirtual || '') + '</strong></td>' +
+                        '<td>' + (row.fecha || '') + '</td>' +
+                        '<td><span class="badge bg-secondary">' + (row.total_items || 0) + ' ítem(s)</span></td>' +
+                        '<td><a href="/imprimir_pim/' + row.idpedidovirtual + '" target="_blank" ' +
+                        'class="btn btn-sm btn-outline-primary">' +
+                        '<i class="fas fa-print me-1"></i>Imprimir PDF</a></td>';
+                    tbody.appendChild(tr);
+                });
+            } else {
+                data.forEach(function(row) {
+                    var tr = document.createElement('tr');
+                    camposMap[tipo].forEach(function(campo) {
+                        var td = document.createElement('td');
+                        td.textContent = row[campo] || '';
+                        tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                });
+            }
+
+            document.getElementById('resultadosContainer').classList.remove('d-none');
+        })
+        .catch(function() {
+            document.getElementById('spinner').classList.add('d-none');
+        });
+});
+</script>
+{% endblock %}
