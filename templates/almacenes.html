@@ -132,14 +132,15 @@
                     <thead class="table-light sticky-top">
                         <tr>
                             <th style="width:90px">Nro. Retiro</th>
-                            <th style="width:85px">Proy. Especial</th>
-                            <th style="width:100px">Fecha Pedido</th>
+                            <th style="width:75px">Proy. Esp.</th>
+                            <th style="width:95px">Fecha Pedido</th>
+                            <th>Preparó</th>
                             <th>Retira</th>
                             <th style="width:85px" class="text-center">Estado</th>
                         </tr>
                     </thead>
                     <tbody id="bodyVales">
-                        <tr><td colspan="5" class="text-center text-muted py-3">
+                        <tr><td colspan="6" class="text-center text-muted py-3">
                             Seleccione un departamento
                         </td></tr>
                     </tbody>
@@ -293,7 +294,7 @@ function cargarVales(data) {
     document.getElementById('cntVales').textContent = data.length + ' vale(s)';
 
     if (!data.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">'
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">'
                         + 'No hay vales pendientes para este sector</td></tr>';
         return;
     }
@@ -308,7 +309,8 @@ function cargarVales(data) {
             '<td><strong>' + r.idretiro + '</strong></td>' +
             '<td class="text-center">' + (r.proyecto || 0) + '</td>' +
             '<td>' + (r.fechapedido || '') + '</td>' +
-            '<td class="text-truncate" style="max-width:160px">' + (r.quien_pide || '') + '</td>' +
+            '<td class="text-truncate" style="max-width:140px">' + (r.quien_pide || '') + '</td>' +
+            '<td class="text-truncate" style="max-width:140px">' + (r.quien_retira || '') + '</td>' +
             '<td class="text-center">' + badgeEst + '</td>';
         tr.dataset.id     = r.idretiro;
         tr.dataset.retira = r.quien_retira || '';
