@@ -311,7 +311,7 @@ function cargarVales(data) {
             '<td class="text-truncate" style="max-width:160px">' + (r.quien_pide || '') + '</td>' +
             '<td class="text-center">' + badgeEst + '</td>';
         tr.dataset.id     = r.idretiro;
-        tr.dataset.retira = r.quien_pide || '';
+        tr.dataset.retira = r.quien_retira || '';
         tr.addEventListener('click', function() { seleccionarVale(this); });
         tbody.appendChild(tr);
     });

@@ -58,12 +58,15 @@ def retiros_sector(id_sector):
 
     cursor_almacenes.execute("""
         SELECT r.idretiro,
-               COALESCE(r.idproyectoespecial, 0)   AS proyecto,
+               COALESCE(r.idproyectoespecial, 0)                        AS proyecto,
                r.fechapedido,
-               COALESCE(op.DescOperario, '')         AS quien_pide,
+               COALESCE(op_pide.DescOperario, '')                       AS quien_pide,
+               COALESCE(op_retira.DescOperario, p.nombre, '')           AS quien_retira,
                r.estado
         FROM almacenes.retiromateriales r
-        LEFT JOIN comun.operarios op ON op.IdOperario = r.quienpidio
+        LEFT JOIN comun.operarios op_pide   ON op_pide.IdOperario   = r.quienpidio
+        LEFT JOIN comun.operarios op_retira ON op_retira.IdOperario  = r.quienretiro
+        LEFT JOIN comun.personal  p         ON p.idpersonal          = r.quienretiro
         WHERE r.sector = %s AND r.estado IN (30, 31)
         ORDER BY r.idretiro DESC
     """, (id_sector,))
@@ -167,14 +170,13 @@ def entregar():
             cursor_almacenes.execute("""
                 SELECT renglon, cantidadpedida
                 FROM almacenes.detallesretiromateriales
-                WHERE idretiro = %s AND renglon = %s
-                  AND autorizacion = 0 AND estado < 32
+                WHERE idretiro = %s AND renglon = %s AND estado < 32
             """, (id_retiro, renglon))
         else:
             cursor_almacenes.execute("""
                 SELECT renglon, cantidadpedida
                 FROM almacenes.detallesretiromateriales
-                WHERE idretiro = %s AND autorizacion = 0 AND estado < 32
+                WHERE idretiro = %s AND estado < 32
             """, (id_retiro,))
 
         items = cursor_almacenes.fetchall()
