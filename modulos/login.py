@@ -29,13 +29,13 @@ def login():
         clave_hash = encriptar_clave(clave)
 
         cursor.execute(
-            "SELECT DescOperario, Pass2 FROM comun.operarios WHERE IdOperario = %s",
+            "SELECT DescOperario, Pass2, Tipo FROM comun.operarios WHERE IdOperario = %s",
             (usuario,)
         )
         result = cursor.fetchone()
 
         if result:
-            nombre, pass2 = result[0].strip(), (result[1] or '').strip()
+            nombre, pass2, tipo = result[0].strip(), (result[1] or '').strip(), (result[2] or '').strip()
             if not pass2:
                 cursor.execute(
                     "UPDATE comun.operarios SET Pass2 = %s WHERE IdOperario = %s",
@@ -50,6 +50,7 @@ def login():
             session.permanent = False
             session['usuario'] = nombre
             session['id']      = usuario
+            session['tipo']    = tipo
 
             cursor.execute("""
                 SELECT DISTINCT t.idjefatura, v.tipooperario, j.jefatura

@@ -8,7 +8,7 @@
 #
 from flask import Blueprint, render_template, session, jsonify, request
 from conexiones import conn_almacenes, cursor_almacenes, check_connection
-from modulos.utils import login_requerido
+from modulos.utils import almacenes_requerido as login_requerido
 from datetime import date
 from decimal import Decimal
 

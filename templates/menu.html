@@ -114,6 +114,7 @@
         </a>
     </div>
 
+    {% if session.get('tipo','').upper() not in ('N','M') %}
     <div class="col-6 col-lg-3">
         <a href="{{ url_for('pedidos.pedido_interno') }}" class="mod-card">
             <div class="mod-icon"><i class="fas fa-file-alt"></i></div>
@@ -123,6 +124,7 @@
             </div>
         </a>
     </div>
+    {% endif %}
 
     <div class="col-6 col-lg-3">
         <a href="{{ url_for('estado.estado_pedido') }}" class="mod-card">
@@ -146,6 +148,7 @@
 
 </div>
 
+{% if session.get('tipo','').upper() in ('N','M','A','J') %}
 <!-- Módulo Almacenes -->
 <div class="sec-label"><i class="fas fa-warehouse me-1"></i>Gestión de almacenes</div>
 
@@ -160,5 +163,6 @@
         </a>
     </div>
 </div>
+{% endif %}
 
 {% endblock %}

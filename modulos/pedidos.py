@@ -2,7 +2,7 @@
 from flask import Blueprint, render_template, request, session, jsonify, flash, redirect, url_for
 from conexiones import conn, cursor, check_connection
 from datetime import datetime
-from modulos.utils import login_requerido
+from modulos.utils import login_requerido, puede_pim
 
 pedidos_bp = Blueprint('pedidos', __name__)
 
@@ -12,6 +12,9 @@ conn, cursor = check_connection(conn, cursor, 'comun')
 @pedidos_bp.route('/pedidos.pedido_interno', methods=['GET', 'POST'])
 @login_requerido
 def pedido_interno():
+    if not puede_pim():
+        return redirect(url_for('menu_bp.menu_principal'))
+
     global conn, cursor
     conn, cursor = check_connection(conn, cursor, 'comun')
 
