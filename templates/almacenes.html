@@ -44,6 +44,12 @@
 .alm-panel .btn-fox.success:hover { background:#157347; }
 .alm-panel .btn-fox.warn   { background:#fd7e14; color:white; border-color:#e96b0c; }
 .alm-panel .btn-fox.warn:hover   { background:#e86a00; }
+.alm-panel .btn-fox.yellow {
+    background:#ffc107; color:#212529; border-color:#e0a800;
+    font-size:.9rem; padding:.5rem .7rem;
+    box-shadow: 0 0 0 3px rgba(255,193,7,.35);
+}
+.alm-panel .btn-fox.yellow:hover { background:#e0a800; }
 
 .panel-stock { background:#f0f7f0; border:1px solid #a3cfbb;
                border-radius:.4rem; padding:.5rem .7rem; font-size:.8rem; margin-bottom:.5rem; }
@@ -184,13 +190,10 @@
     <!-- ── Panel de acciones ─────────────────────────────────── -->
     <div class="alm-panel">
 
-        <!-- Auth status del ítem seleccionado -->
-        <div id="panelAuthOk"   class="panel-auth-ok   d-none">
-            <i class="fas fa-check-circle me-1"></i>AUTORIZADO
-        </div>
-        <div id="panelAuthPend" class="panel-auth-pend d-none">
-            <i class="fas fa-ban me-1"></i>FALTA AUTORIZAR
-        </div>
+        <!-- Imprimir — acción principal -->
+        <button class="btn-fox yellow" onclick="accionImprimir()">
+            <i class="fas fa-print me-1"></i>IMPRIMIR VALE
+        </button>
 
         <!-- Retiro -->
         <div class="panel-seccion">Retiro</div>
@@ -210,11 +213,13 @@
             <i class="fas fa-check me-1"></i>AUTORIZAR ÍTEM
         </button>
 
-        <!-- Imprimir -->
-        <div class="panel-seccion">Imprimir</div>
-        <button class="btn-fox" onclick="accionImprimir()">
-            <i class="fas fa-print me-1"></i>IMPRIMIR
-        </button>
+        <!-- Auth status del ítem seleccionado -->
+        <div id="panelAuthOk"   class="panel-auth-ok   d-none mt-2">
+            <i class="fas fa-check-circle me-1"></i>AUTORIZADO
+        </div>
+        <div id="panelAuthPend" class="panel-auth-pend d-none mt-2">
+            <i class="fas fa-ban me-1"></i>FALTA AUTORIZAR
+        </div>
 
         <!-- Stock almacén del ítem seleccionado -->
         <div class="panel-seccion">Stock almacén</div>
