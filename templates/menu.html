@@ -4,104 +4,161 @@
 
 {% block extra_css %}
 <style>
-    .card-destacado {
-        background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
-        border-radius: .75rem;
-        padding: 2rem;
+    /* ── Bienvenida compacta ───────────────────────────────── */
+    .bienvenida {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        box-shadow: 0 4px 16px rgba(13,71,161,.3);
-        text-decoration: none;
-        transition: transform .15s, box-shadow .15s;
-        color: white;
-        border: none;
-    }
-    .card-destacado:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 24px rgba(13,71,161,.45);
-        color: white;
-    }
-    .card-destacado h2 { font-size: 1.6rem; font-weight: 800; margin: 0; }
-    .card-destacado p  { margin: .3rem 0 0; opacity: .8; font-size: .9rem; }
-    .card-destacado .icono { font-size: 3rem; opacity: .45; }
-    .card-menu {
-        border-radius: .6rem;
-        text-decoration: none;
-        color: #333;
-        transition: transform .15s, box-shadow .15s, border-color .15s;
-        border: 1px solid #e0e4ea;
-    }
-    .card-menu:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 14px rgba(0,0,0,.12);
-        border-color: #0d47a1;
-        color: #333;
-    }
-    .card-icono {
-        width: 48px; height: 48px;
+        gap: .75rem;
+        padding: .6rem 1rem;
+        background: linear-gradient(135deg, var(--refsa-blue) 0%, var(--refsa-blue-light) 100%);
         border-radius: .5rem;
-        background: #e3f2fd;
+        color: white;
+    }
+    .bienvenida-avatar {
+        width: 34px; height: 34px;
+        background: rgba(255,255,255,.2);
+        border-radius: 50%;
         display: flex; align-items: center; justify-content: center;
-        font-size: 1.4rem;
-        color: #0d47a1;
+        font-size: .95rem;
         flex-shrink: 0;
+    }
+    .bienvenida-nombre  { font-weight: 600; font-size: .9rem; line-height: 1.2; }
+    .bienvenida-sector  { font-size: .75rem; opacity: .8; }
+
+    /* ── Cards compactas horizontales ─────────────────────── */
+    .mod-card {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        padding: .65rem .9rem;
+        background: white;
+        border: 1px solid #e2e6ea;
+        border-radius: .45rem;
+        text-decoration: none;
+        color: #333;
+        transition: border-color .12s, box-shadow .12s, background .12s;
+        height: 100%;
+    }
+    .mod-card:hover {
+        border-color: #90b4e0;
+        box-shadow: 0 2px 10px rgba(13,71,161,.12);
+        background: #fafcff;
+        color: #333;
+    }
+    .mod-icon {
+        width: 38px; height: 38px;
+        border-radius: .4rem;
+        background: linear-gradient(135deg, var(--refsa-blue) 0%, var(--refsa-blue-light) 100%);
+        display: flex; align-items: center; justify-content: center;
+        color: white;
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+    .mod-icon--green {
+        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+    }
+    .mod-title {
+        font-weight: 600;
+        font-size: .82rem;
+        color: var(--refsa-blue);
+        line-height: 1.2;
+    }
+    .mod-title--green { color: #2e7d32; }
+    .mod-desc  {
+        font-size: .72rem;
+        color: #888;
+        line-height: 1.3;
+        margin-top: .1rem;
+    }
+    .mod-card--green { border-color: #dcedc8; }
+    .mod-card--green:hover { border-color: #81c784; box-shadow: 0 2px 10px rgba(46,125,50,.12); }
+
+    /* ── Separador de sección ──────────────────────────────── */
+    .sec-label {
+        font-size: .68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: #aaa;
+        margin: .9rem 0 .4rem;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Bienvenida -->
-<div class="alert alert-primary border-start border-4 border-primary bg-white mt-3 py-3" role="alert" style="border-radius:.5rem;">
-    <i class="fas fa-hand-wave me-2"></i>
-    Bienvenido, <strong>{{ usuario }}</strong>
-</div>
 
-<!-- Acceso principal: Retiro -->
-<p class="text-muted small fw-semibold text-uppercase letter-spacing mb-2">
-    <i class="fas fa-bolt me-1"></i>Acceso rápido
-</p>
-
-<a href="{{ url_for('retiro.retiro_materiales') }}" class="card-destacado d-flex mb-4">
+<!-- Bienvenida compacta -->
+<div class="bienvenida mt-3 mb-3">
+    <div class="bienvenida-avatar"><i class="fas fa-user"></i></div>
     <div>
-        <h2><i class="fas fa-dolly me-2"></i>Retiro de Materiales</h2>
-        <p>Registrar salida de materiales del almacén</p>
+        <div class="bienvenida-nombre">{{ usuario }}</div>
+        <div class="bienvenida-sector">
+            <i class="fas fa-building me-1"></i>
+            {{ sector_nombre | upper if sector_nombre else 'Sistema de Almacenes REFSA' }}
+        </div>
     </div>
-    <div class="icono"><i class="fas fa-boxes"></i></div>
-</a>
+</div>
 
-<!-- Otras opciones -->
-<p class="text-muted small fw-semibold text-uppercase mb-2">
-    Otras opciones
-</p>
+<!-- Módulos principales: 2 cols en sm, 4 cols en lg+ -->
+<div class="sec-label"><i class="fas fa-th-large me-1"></i>Módulos</div>
 
-<div class="row g-3 mb-4">
-    <div class="col-md-4">
-        <a href="{{ url_for('pedidos.pedido_interno') }}" class="card card-menu p-3 d-flex flex-row align-items-center gap-3 h-100">
-            <div class="card-icono"><i class="fas fa-file-alt"></i></div>
+<div class="row g-2 mb-1">
+
+    <div class="col-6 col-lg-3">
+        <a href="{{ url_for('retiro.retiro_materiales') }}" class="mod-card">
+            <div class="mod-icon"><i class="fas fa-dolly"></i></div>
             <div>
-                <div class="fw-bold">Pedido Interno (PIM)</div>
-                <small class="text-muted">Generar solicitud de materiales</small>
+                <div class="mod-title">Retiro de Materiales</div>
+                <div class="mod-desc">Registrar salida de materiales</div>
             </div>
         </a>
     </div>
-    <div class="col-md-4">
-        <a href="{{ url_for('estado.estado_pedido') }}" class="card card-menu p-3 d-flex flex-row align-items-center gap-3 h-100">
-            <div class="card-icono"><i class="fas fa-search"></i></div>
+
+    <div class="col-6 col-lg-3">
+        <a href="{{ url_for('pedidos.pedido_interno') }}" class="mod-card">
+            <div class="mod-icon"><i class="fas fa-file-alt"></i></div>
             <div>
-                <div class="fw-bold">Estado de Pedido</div>
-                <small class="text-muted">Consultar estado de solicitudes</small>
+                <div class="mod-title">Pedido Interno (PIM)</div>
+                <div class="mod-desc">Solicitud interna de materiales</div>
             </div>
         </a>
     </div>
-    <div class="col-md-4">
-        <a href="{{ url_for('imprimir.imprimir') }}" class="card card-menu p-3 d-flex flex-row align-items-center gap-3 h-100">
-            <div class="card-icono"><i class="fas fa-print"></i></div>
+
+    <div class="col-6 col-lg-3">
+        <a href="{{ url_for('estado.estado_pedido') }}" class="mod-card">
+            <div class="mod-icon"><i class="fas fa-search"></i></div>
             <div>
-                <div class="fw-bold">Imprimir Vales</div>
-                <small class="text-muted">Generar PDFs de comprobantes</small>
+                <div class="mod-title">Estado de Pedidos</div>
+                <div class="mod-desc">Consultar estado de solicitudes</div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-6 col-lg-3">
+        <a href="{{ url_for('imprimir.imprimir') }}" class="mod-card">
+            <div class="mod-icon"><i class="fas fa-print"></i></div>
+            <div>
+                <div class="mod-title">Imprimir Vales</div>
+                <div class="mod-desc">PDFs de retiro y pedidos</div>
+            </div>
+        </a>
+    </div>
+
+</div>
+
+<!-- Módulo Almacenes -->
+<div class="sec-label"><i class="fas fa-warehouse me-1"></i>Gestión de almacenes</div>
+
+<div class="row g-2 mb-3">
+    <div class="col-6 col-lg-3">
+        <a href="{{ url_for('almacenes.panel') }}" class="mod-card mod-card--green">
+            <div class="mod-icon mod-icon--green"><i class="fas fa-warehouse"></i></div>
+            <div>
+                <div class="mod-title mod-title--green">Almacenes</div>
+                <div class="mod-desc">Autorizar y registrar entregas</div>
             </div>
         </a>
     </div>
 </div>
+
 {% endblock %}

@@ -1,0 +1,502 @@
+{% extends "base.html" %}
+
+{% block title %}Almacenes — Retiro{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Layout general ─────────────────────────────────── */
+.alm-wrap   { display:flex; gap:1rem; align-items:flex-start; }
+.alm-grids  { flex:1 1 0; min-width:0; }
+.alm-panel  { width:210px; flex-shrink:0; }
+
+@media(max-width:768px){
+    .alm-wrap  { flex-direction:column; }
+    .alm-panel { width:100%; }
+}
+
+/* ── Info bar ────────────────────────────────────────── */
+.info-bar { background:#f8f9fa; border:1px solid #dee2e6;
+            border-radius:.5rem; padding:.6rem 1rem; font-size:.82rem; }
+.info-bar .info-label { color:#6c757d; font-size:.72rem; text-transform:uppercase;
+                        letter-spacing:.03em; line-height:1; }
+.info-bar .info-val   { font-weight:700; font-size:.95rem; }
+
+/* ── Grillas ─────────────────────────────────────────── */
+.tbl-alm td, .tbl-alm th { font-size:.8rem; vertical-align:middle; cursor:pointer; }
+.tbl-alm tbody tr.selected { background:#cfe2ff !important; }
+.tbl-alm tbody tr:hover    { background:#e9f0ff; }
+
+/* ── Auth badge ──────────────────────────────────────── */
+.auth-ok   { color:#198754; font-weight:700; font-size:.78rem; }
+.auth-pend { color:#dc3545; font-weight:700; font-size:.78rem; }
+
+/* ── Panel de acciones ───────────────────────────────── */
+.alm-panel .btn-fox {
+    display:block; width:100%; text-align:left;
+    background:#e8e8e8; border:1px solid #aaa; border-radius:3px;
+    padding:.35rem .7rem; font-size:.82rem; font-weight:600;
+    margin-bottom:.35rem; cursor:pointer; transition:background .1s;
+}
+.alm-panel .btn-fox:hover { background:#d0d0d0; }
+.alm-panel .btn-fox.primary { background:#0d47a1; color:white; border-color:#0a3a8f; }
+.alm-panel .btn-fox.primary:hover { background:#1565c0; }
+.alm-panel .btn-fox.success { background:#198754; color:white; border-color:#146c43; }
+.alm-panel .btn-fox.success:hover { background:#157347; }
+.alm-panel .btn-fox.warn   { background:#fd7e14; color:white; border-color:#e96b0c; }
+.alm-panel .btn-fox.warn:hover   { background:#e86a00; }
+
+.panel-stock { background:#f0f7f0; border:1px solid #a3cfbb;
+               border-radius:.4rem; padding:.5rem .7rem; font-size:.8rem; margin-bottom:.5rem; }
+.panel-stock .sv { font-weight:700; font-size:1rem; color:#198754; }
+
+.panel-auth-ok   { background:#d1e7dd; border:1px solid #a3cfbb;
+                   border-radius:.4rem; padding:.4rem .7rem; text-align:center;
+                   color:#0a3622; font-weight:700; font-size:.8rem; margin-bottom:.4rem; }
+.panel-auth-pend { background:#f8d7da; border:1px solid #f5c2c7;
+                   border-radius:.4rem; padding:.4rem .7rem; text-align:center;
+                   color:#842029; font-weight:700; font-size:.8rem; margin-bottom:.4rem; }
+
+.panel-seccion { font-size:.7rem; text-transform:uppercase; color:#888;
+                 letter-spacing:.05em; margin:.6rem 0 .3rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mt-3 mb-3 d-flex align-items-center gap-3">
+    <h4 class="mb-0" style="color:var(--refsa-blue);">
+        <i class="fas fa-warehouse me-2"></i>Almacenes — Retiro
+    </h4>
+
+    <!-- Combo sector / departamento -->
+    <div class="d-flex align-items-center gap-2 ms-3">
+        <label class="fw-semibold small mb-0" style="white-space:nowrap">
+            <i class="fas fa-building me-1 text-primary"></i>Departamento:
+        </label>
+        <select id="cboSector" class="form-select form-select-sm" style="min-width:220px">
+            <option value="">— Seleccionar —</option>
+            {% for s in sectores %}
+            <option value="{{ s.id }}">{{ s.nombre | upper }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<!-- Info bar (se actualiza al seleccionar un ítem) -->
+<div class="info-bar mb-3" id="infoBar">
+    <div class="row g-2 align-items-center">
+        <div class="col-auto">
+            <div class="info-label">Material</div>
+            <div class="info-val" id="iMaterial" style="min-width:260px">—</div>
+        </div>
+        <div class="col-auto border-start ps-3">
+            <div class="info-label">Solicitado</div>
+            <div class="info-val" id="iSolicitado">—</div>
+        </div>
+        <div class="col-auto border-start ps-3">
+            <div class="info-label">Ya retirado</div>
+            <div class="info-val" id="iYaRetirado">—</div>
+        </div>
+        <div class="col-auto border-start ps-3">
+            <div class="info-label">A entregar</div>
+            <div class="info-val" id="iAEntregar"
+                 style="background:#fff3cd; padding:.1rem .4rem; border-radius:3px;">—</div>
+        </div>
+        <div class="col-auto border-start ps-3">
+            <div class="info-label">Stock almacén</div>
+            <div class="info-val text-success" id="iStock">—</div>
+        </div>
+        <div class="col-auto border-start ps-3" id="iAuthWrap">
+            <div class="info-label">Autorización</div>
+            <div class="info-val" id="iAuth">—</div>
+        </div>
+    </div>
+</div>
+
+<!-- Layout principal -->
+<div class="alm-wrap">
+
+    <!-- ── Grillas ────────────────────────────────────────────── -->
+    <div class="alm-grids">
+
+        <!-- Grilla 1: Vales -->
+        <div class="card mb-2">
+            <div class="card-header py-1 d-flex justify-content-between align-items-center">
+                <span class="small fw-bold">
+                    <i class="fas fa-list me-1"></i>Vales de retiro
+                    <span id="lblSector" class="text-muted ms-1"></span>
+                </span>
+                <span id="cntVales" class="badge bg-secondary"></span>
+            </div>
+            <div class="card-body p-0" style="max-height:210px; overflow-y:auto;">
+                <table class="table table-hover table-sm tbl-alm mb-0" id="tablaVales">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th style="width:90px">Nro. Retiro</th>
+                            <th style="width:85px">Proy. Especial</th>
+                            <th style="width:100px">Fecha Pedido</th>
+                            <th>Retira</th>
+                            <th style="width:85px" class="text-center">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bodyVales">
+                        <tr><td colspan="5" class="text-center text-muted py-3">
+                            Seleccione un departamento
+                        </td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Grilla 2: Ítems del vale seleccionado -->
+        <div class="card">
+            <div class="card-header py-1 d-flex justify-content-between align-items-center">
+                <span class="small fw-bold">
+                    <i class="fas fa-boxes me-1"></i>Detalle
+                    <span id="lblNroRetiro" class="text-muted ms-1"></span>
+                </span>
+                <span id="cntItems" class="badge bg-secondary"></span>
+            </div>
+            <div class="card-body p-0" style="max-height:280px; overflow-y:auto;">
+                <table class="table table-hover table-sm tbl-alm mb-0" id="tablaItems">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th style="width:35px">#</th>
+                            <th style="width:65px">CD1</th>
+                            <th style="width:55px">CD2</th>
+                            <th>Material</th>
+                            <th style="width:75px" class="text-end">Cant.</th>
+                            <th style="width:90px" class="text-center">Autorización</th>
+                            <th style="width:75px" class="text-center">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bodyItems">
+                        <tr><td colspan="7" class="text-center text-muted py-3">
+                            Seleccione un vale
+                        </td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div><!-- /alm-grids -->
+
+    <!-- ── Panel de acciones ─────────────────────────────────── -->
+    <div class="alm-panel">
+
+        <!-- Auth status del ítem seleccionado -->
+        <div id="panelAuthOk"   class="panel-auth-ok   d-none">
+            <i class="fas fa-check-circle me-1"></i>AUTORIZADO
+        </div>
+        <div id="panelAuthPend" class="panel-auth-pend d-none">
+            <i class="fas fa-ban me-1"></i>FALTA AUTORIZAR
+        </div>
+
+        <!-- Retiro -->
+        <div class="panel-seccion">Retiro</div>
+        <button class="btn-fox primary" onclick="accionRetiraTodo()">
+            <i class="fas fa-truck me-1"></i>RETIRA TODO
+        </button>
+        <button class="btn-fox warn" onclick="accionRetiraItem()">
+            <i class="fas fa-hand-pointer me-1"></i>RETIRA ÍTEM
+        </button>
+
+        <!-- Autorización -->
+        <div class="panel-seccion">Autorización</div>
+        <button class="btn-fox success" onclick="accionAutorizarTodo()">
+            <i class="fas fa-check-double me-1"></i>AUTORIZAR TODO
+        </button>
+        <button class="btn-fox" onclick="accionAutorizarItem()">
+            <i class="fas fa-check me-1"></i>AUTORIZAR ÍTEM
+        </button>
+
+        <!-- Imprimir -->
+        <div class="panel-seccion">Imprimir</div>
+        <button class="btn-fox" onclick="accionImprimir()">
+            <i class="fas fa-print me-1"></i>IMPRIMIR
+        </button>
+
+        <!-- Stock almacén del ítem seleccionado -->
+        <div class="panel-seccion">Stock almacén</div>
+        <div class="panel-stock">
+            <div class="sv" id="panelStock">—</div>
+            <div class="text-muted" style="font-size:.7rem">unidades disponibles</div>
+        </div>
+
+        <!-- Retira (quien) -->
+        <div class="panel-seccion">Retira</div>
+        <div class="info-bar p-2 text-center small" id="panelRetira" style="min-height:36px">—</div>
+
+    </div><!-- /alm-panel -->
+
+</div><!-- /alm-wrap -->
+
+<!-- Toast de feedback -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="toastAlm" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMsg"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                    data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let idRetiroActivo  = null;
+let rengActivo      = null;
+let itemActivo      = null;     // objeto completo del ítem seleccionado
+let retiraActivo    = null;     // quien retira del vale seleccionado
+let toastBS         = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    toastBS = new bootstrap.Toast(document.getElementById('toastAlm'), {delay: 3000});
+});
+
+// ── Feedback toast ────────────────────────────────────────────────────────────
+function toast(msg, ok) {
+    const el = document.getElementById('toastAlm');
+    el.className = 'toast align-items-center text-white border-0 '
+                 + (ok ? 'bg-success' : 'bg-danger');
+    document.getElementById('toastMsg').textContent = msg;
+    toastBS.show();
+}
+
+// ── Combo sector ──────────────────────────────────────────────────────────────
+document.getElementById('cboSector').addEventListener('change', function() {
+    const id = this.value;
+    const nombre = this.options[this.selectedIndex].text;
+
+    // reset
+    idRetiroActivo = rengActivo = itemActivo = null;
+    resetInfoBar();
+    resetItemsGrid();
+    document.getElementById('lblSector').textContent = id ? ('— ' + nombre) : '';
+
+    if (!id) {
+        document.getElementById('bodyVales').innerHTML =
+            '<tr><td colspan="5" class="text-center text-muted py-3">Seleccione un departamento</td></tr>';
+        document.getElementById('cntVales').textContent = '';
+        return;
+    }
+
+    fetch('/almacenes/retiros_sector/' + id)
+        .then(r => r.json())
+        .then(cargarVales);
+});
+
+// ── Cargar grilla 1: vales ────────────────────────────────────────────────────
+function cargarVales(data) {
+    const tbody = document.getElementById('bodyVales');
+    tbody.innerHTML = '';
+    document.getElementById('cntVales').textContent = data.length + ' vale(s)';
+
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">'
+                        + 'No hay vales pendientes para este sector</td></tr>';
+        return;
+    }
+
+    data.forEach(function(r) {
+        const badgeEst = r.estado == 30
+            ? '<span class="badge bg-warning text-dark">Pendiente</span>'
+            : '<span class="badge bg-info text-dark">Parcial</span>';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td><strong>' + r.idretiro + '</strong></td>' +
+            '<td class="text-center">' + (r.proyecto || 0) + '</td>' +
+            '<td>' + (r.fechapedido || '') + '</td>' +
+            '<td class="text-truncate" style="max-width:160px">' + (r.quien_pide || '') + '</td>' +
+            '<td class="text-center">' + badgeEst + '</td>';
+        tr.dataset.id     = r.idretiro;
+        tr.dataset.retira = r.quien_pide || '';
+        tr.addEventListener('click', function() { seleccionarVale(this); });
+        tbody.appendChild(tr);
+    });
+}
+
+// ── Seleccionar vale → cargar ítems ──────────────────────────────────────────
+function seleccionarVale(tr) {
+    document.querySelectorAll('#tablaVales tbody tr').forEach(r => r.classList.remove('selected'));
+    tr.classList.add('selected');
+
+    idRetiroActivo = parseInt(tr.dataset.id);
+    retiraActivo   = tr.dataset.retira;
+    rengActivo     = null;
+    itemActivo     = null;
+
+    document.getElementById('lblNroRetiro').textContent = '— Vale #' + idRetiroActivo;
+    document.getElementById('panelRetira').textContent  = retiraActivo || '—';
+    resetInfoBar();
+
+    fetch('/almacenes/items/' + idRetiroActivo)
+        .then(r => r.json())
+        .then(cargarItems);
+}
+
+// ── Cargar grilla 2: ítems ────────────────────────────────────────────────────
+function cargarItems(data) {
+    const tbody = document.getElementById('bodyItems');
+    tbody.innerHTML = '';
+    document.getElementById('cntItems').textContent = data.length + ' ítem(s)';
+
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">Sin ítems</td></tr>';
+        return;
+    }
+
+    data.forEach(function(it) {
+        const auth     = it.autorizacion;
+        const entregado = it.estado === 32;
+
+        const authTxt = auth === 0
+            ? '<span class="auth-ok"><i class="fas fa-check-circle"></i> AUTORIZADO</span>'
+            : '<span class="auth-pend"><i class="fas fa-ban"></i> FALTA AUTH.</span>';
+
+        const estTxt = entregado
+            ? '<span class="badge bg-success">Entregado</span>'
+            : (it.estado === 31
+               ? '<span class="badge bg-info text-dark">Parcial</span>'
+               : '<span class="badge bg-warning text-dark">Pendiente</span>');
+
+        const cantFmt = parseFloat(it.cantidadpedida || 0).toFixed(2).replace('.', ',');
+
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td>' + it.renglon + '</td>' +
+            '<td class="font-monospace">' + it.cd1 + '</td>' +
+            '<td class="font-monospace">' + it.cd2 + '</td>' +
+            '<td>' + it.material + '</td>' +
+            '<td class="text-end">' + cantFmt + '</td>' +
+            '<td class="text-center">' + authTxt + '</td>' +
+            '<td class="text-center">' + estTxt + '</td>';
+        tr.dataset.renglon = it.renglon;
+        tr._data = it;
+        tr.addEventListener('click', function() { seleccionarItem(this); });
+        tbody.appendChild(tr);
+    });
+
+    // re-seleccionar el renglon activo si sigue existiendo
+    if (rengActivo !== null) {
+        const prev = tbody.querySelector('tr[data-renglon="' + rengActivo + '"]');
+        if (prev) seleccionarItem(prev);
+    }
+}
+
+// ── Seleccionar ítem → actualizar info bar ────────────────────────────────────
+function seleccionarItem(tr) {
+    document.querySelectorAll('#tablaItems tbody tr').forEach(r => r.classList.remove('selected'));
+    tr.classList.add('selected');
+
+    rengActivo  = parseInt(tr.dataset.renglon);
+    itemActivo  = tr._data;
+    const it    = itemActivo;
+
+    document.getElementById('iMaterial').textContent =
+        it.cd1 + '-' + it.cd2 + '  ' + it.material;
+
+    const fmt = v => parseFloat(v || 0).toFixed(2).replace('.', ',');
+    document.getElementById('iSolicitado').textContent  = fmt(it.cantidadpedida);
+    document.getElementById('iYaRetirado').textContent  = fmt(it.cantidadretirada);
+    document.getElementById('iAEntregar').textContent   = fmt(it.a_entregar);
+    document.getElementById('iStock').textContent       = fmt(it.stock_almacen);
+    document.getElementById('panelStock').textContent   = fmt(it.stock_almacen);
+
+    const okEl   = document.getElementById('panelAuthOk');
+    const pendEl = document.getElementById('panelAuthPend');
+    const iAuth  = document.getElementById('iAuth');
+
+    if (it.autorizacion === 0) {
+        okEl.classList.remove('d-none');
+        pendEl.classList.add('d-none');
+        iAuth.innerHTML = '<span class="auth-ok"><i class="fas fa-check-circle"></i> AUTORIZADO</span>';
+    } else {
+        okEl.classList.add('d-none');
+        pendEl.classList.remove('d-none');
+        iAuth.innerHTML = '<span class="auth-pend"><i class="fas fa-ban"></i> FALTA AUTORIZAR</span>';
+    }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function resetInfoBar() {
+    ['iMaterial','iSolicitado','iYaRetirado','iAEntregar','iStock','iAuth','panelStock']
+        .forEach(id => { document.getElementById(id).textContent = '—'; });
+    document.getElementById('panelAuthOk').classList.add('d-none');
+    document.getElementById('panelAuthPend').classList.add('d-none');
+}
+
+function resetItemsGrid() {
+    document.getElementById('bodyItems').innerHTML =
+        '<tr><td colspan="7" class="text-center text-muted py-3">Seleccione un vale</td></tr>';
+    document.getElementById('cntItems').textContent = '';
+    document.getElementById('lblNroRetiro').textContent = '';
+    document.getElementById('panelRetira').textContent  = '—';
+}
+
+function recargarItems() {
+    if (!idRetiroActivo) return;
+    fetch('/almacenes/items/' + idRetiroActivo)
+        .then(r => r.json())
+        .then(cargarItems);
+}
+
+function recargarVales() {
+    const sel = document.getElementById('cboSector');
+    if (!sel.value) return;
+    fetch('/almacenes/retiros_sector/' + sel.value)
+        .then(r => r.json())
+        .then(function(data) {
+            cargarVales(data);
+            // si el vale ya no existe (entregado completo), limpiar grilla de ítems
+            const existe = data.some(r => r.idretiro === idRetiroActivo);
+            if (!existe) resetItemsGrid();
+        });
+}
+
+// ── Acciones ──────────────────────────────────────────────────────────────────
+function _post(url, body, cb) {
+    fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+    })
+    .then(r => r.json())
+    .then(function(data) {
+        toast(data.msg || (data.ok ? 'OK' : 'Error'), data.ok);
+        if (data.ok && cb) cb();
+    })
+    .catch(function() { toast('Error de conexión', false); });
+}
+
+function accionRetiraTodo() {
+    if (!idRetiroActivo) { toast('Seleccione un vale', false); return; }
+    _post('/almacenes/entregar', {id_retiro: idRetiroActivo, renglon: null},
+          function() { recargarItems(); recargarVales(); });
+}
+
+function accionRetiraItem() {
+    if (!idRetiroActivo || rengActivo === null) { toast('Seleccione un ítem', false); return; }
+    _post('/almacenes/entregar', {id_retiro: idRetiroActivo, renglon: rengActivo},
+          function() { recargarItems(); recargarVales(); });
+}
+
+function accionAutorizarTodo() {
+    if (!idRetiroActivo) { toast('Seleccione un vale', false); return; }
+    _post('/almacenes/autorizar', {id_retiro: idRetiroActivo, renglon: null},
+          recargarItems);
+}
+
+function accionAutorizarItem() {
+    if (!idRetiroActivo || rengActivo === null) { toast('Seleccione un ítem', false); return; }
+    _post('/almacenes/autorizar', {id_retiro: idRetiroActivo, renglon: rengActivo},
+          recargarItems);
+}
+
+function accionImprimir() {
+    if (!idRetiroActivo) { toast('Seleccione un vale para imprimir', false); return; }
+    window.open('/imprimir_retiro/' + idRetiroActivo, '_blank');
+}
+</script>
+{% endblock %}
