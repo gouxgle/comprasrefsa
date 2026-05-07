@@ -1,168 +1,212 @@
 {% extends "base.html" %}
-
-{% block title %}Panel Principal — Sistema de Almacenes REFSA{% endblock %}
+{% block title %}Dashboard — Sistema de Almacenes REFSA{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
 
 {% block extra_css %}
 <style>
-    /* ── Bienvenida compacta ───────────────────────────────── */
-    .bienvenida {
-        display: flex;
-        align-items: center;
-        gap: .75rem;
-        padding: .6rem 1rem;
-        background: linear-gradient(135deg, var(--refsa-blue) 0%, var(--refsa-blue-light) 100%);
-        border-radius: .5rem;
-        color: white;
-    }
-    .bienvenida-avatar {
-        width: 34px; height: 34px;
-        background: rgba(255,255,255,.2);
-        border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        font-size: .95rem;
-        flex-shrink: 0;
-    }
-    .bienvenida-nombre  { font-weight: 600; font-size: .9rem; line-height: 1.2; }
-    .bienvenida-sector  { font-size: .75rem; opacity: .8; }
+/* ── KPI cards ──────────────────────────────────────────────────── */
+.kpi-card { border:none; border-radius:.75rem; box-shadow:0 2px 8px rgba(0,0,0,.07); }
+.kpi-card .kpi-value { font-size:2rem; font-weight:700; line-height:1; }
+.kpi-card .kpi-label { font-size:.75rem; color:#6c757d; text-transform:uppercase; letter-spacing:.04em; }
 
-    /* ── Cards compactas horizontales ─────────────────────── */
-    .mod-card {
-        display: flex;
-        align-items: center;
-        gap: .75rem;
-        padding: .65rem .9rem;
-        background: white;
-        border: 1px solid #e2e6ea;
-        border-radius: .45rem;
-        text-decoration: none;
-        color: #333;
-        transition: border-color .12s, box-shadow .12s, background .12s;
-        height: 100%;
-    }
-    .mod-card:hover {
-        border-color: #90b4e0;
-        box-shadow: 0 2px 10px rgba(13,71,161,.12);
-        background: #fafcff;
-        color: #333;
-    }
-    .mod-icon {
-        width: 38px; height: 38px;
-        border-radius: .4rem;
-        background: linear-gradient(135deg, var(--refsa-blue) 0%, var(--refsa-blue-light) 100%);
-        display: flex; align-items: center; justify-content: center;
-        color: white;
-        font-size: 1rem;
-        flex-shrink: 0;
-    }
-    .mod-icon--green {
-        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
-    }
-    .mod-title {
-        font-weight: 600;
-        font-size: .82rem;
-        color: var(--refsa-blue);
-        line-height: 1.2;
-    }
-    .mod-title--green { color: #2e7d32; }
-    .mod-desc  {
-        font-size: .72rem;
-        color: #888;
-        line-height: 1.3;
-        margin-top: .1rem;
-    }
-    .mod-card--green { border-color: #dcedc8; }
-    .mod-card--green:hover { border-color: #81c784; box-shadow: 0 2px 10px rgba(46,125,50,.12); }
+/* ── Acción rápida ──────────────────────────────────────────────── */
+.quick-action {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:.5rem; padding:1.1rem .5rem;
+    border:1px solid #e6eaf0; border-radius:.65rem; background:#fff;
+    text-decoration:none; color:#333; transition:all .15s; text-align:center;
+}
+.quick-action:hover { border-color:#90b4e0; box-shadow:0 3px 12px rgba(13,71,161,.12); color:#0d47a1; background:#f5f8ff; }
+.quick-action .qa-icon {
+    width:42px; height:42px; border-radius:.5rem;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.1rem; color:#fff;
+}
+.quick-action .qa-label { font-size:.78rem; font-weight:600; line-height:1.2; }
 
-    /* ── Separador de sección ──────────────────────────────── */
-    .sec-label {
-        font-size: .68rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: .06em;
-        color: #aaa;
-        margin: .9rem 0 .4rem;
-    }
+/* ── Actividad reciente ─────────────────────────────────────────── */
+.activity-item { padding:.55rem 0; border-bottom:1px solid #f0f2f5; }
+.activity-item:last-child { border-bottom:none; }
+.activity-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:4px; }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- Bienvenida compacta -->
-<div class="bienvenida mt-3 mb-3">
-    <div class="bienvenida-avatar"><i class="fas fa-user"></i></div>
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<div class="d-flex align-items-start justify-content-between mb-4">
     <div>
-        <div class="bienvenida-nombre">{{ usuario }}</div>
-        <div class="bienvenida-sector">
+        <h2 class="mb-1" style="color:var(--refsa-blue);font-weight:700">
+            {{ saludo }}, {{ usuario.split()[0] | title }}
+        </h2>
+        <div class="text-secondary">
             <i class="fas fa-building me-1"></i>
-            {{ sector_nombre | upper if sector_nombre else 'Sistema de Almacenes REFSA' }}
+            Centro Operativo de Almacenes
+            {% if sector_nombre %}· {{ sector_nombre | upper }}{% endif %}
         </div>
+    </div>
+    <div class="text-end text-secondary small d-none d-md-block">
+        <i class="fas fa-calendar-alt me-1"></i>{{ hoy }}
     </div>
 </div>
 
-<!-- Módulos principales: 2 cols en sm, 4 cols en lg+ -->
-<div class="sec-label"><i class="fas fa-th-large me-1"></i>Módulos</div>
-
-<div class="row g-2 mb-1">
+<!-- ── KPIs ────────────────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
 
     <div class="col-6 col-lg-3">
-        <a href="{{ url_for('retiro.retiro_materiales') }}" class="mod-card">
-            <div class="mod-icon"><i class="fas fa-dolly"></i></div>
-            <div>
-                <div class="mod-title">Retiro de Materiales</div>
-                <div class="mod-desc">Registrar salida de materiales</div>
+        <div class="card kpi-card p-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="kpi-icon rounded-3"
+                     style="background:#e3f2fd;color:#0d47a1;width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-size:1.3rem">
+                    <i class="fas fa-dolly"></i>
+                </div>
+                <div>
+                    <div class="kpi-value">{{ kpi.total_mes }}</div>
+                    <div class="kpi-label">Vales este mes</div>
+                </div>
             </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+        <div class="card kpi-card p-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="kpi-icon rounded-3"
+                     style="background:#fff8e1;color:#f59f00;width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-size:1.3rem">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div>
+                    <div class="kpi-value">{{ kpi.pendientes }}</div>
+                    <div class="kpi-label">Pendientes</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+        <div class="card kpi-card p-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="kpi-icon rounded-3"
+                     style="background:#d1fae5;color:#198754;width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-size:1.3rem">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div>
+                    <div class="kpi-value">{{ kpi.entregados }}</div>
+                    <div class="kpi-label">Entregados</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+        <div class="card kpi-card p-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="kpi-icon rounded-3"
+                     style="background:#ffe4e6;color:#dc3545;width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-size:1.3rem">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div>
+                    <div class="kpi-value {% if kpi.criticos > 0 %}text-danger{% endif %}">{{ kpi.criticos }}</div>
+                    <div class="kpi-label">Críticos (+3 días)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ── Acciones rápidas ─────────────────────────────────────────────────── -->
+<div class="mb-1" style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa">
+    <i class="fas fa-bolt me-1"></i>Acciones rápidas
+</div>
+<div class="row g-2 mb-4">
+
+    <div class="col-6 col-sm-3 col-lg-2">
+        <a href="{{ url_for('retiro.retiro_materiales') }}" class="quick-action">
+            <div class="qa-icon" style="background:#0d47a1"><i class="fas fa-dolly"></i></div>
+            <div class="qa-label">Nuevo Retiro</div>
         </a>
     </div>
 
     {% if session.get('tipo','').upper() not in ('N','M') %}
-    <div class="col-6 col-lg-3">
-        <a href="{{ url_for('pedidos.pedido_interno') }}" class="mod-card">
-            <div class="mod-icon"><i class="fas fa-file-alt"></i></div>
-            <div>
-                <div class="mod-title">Pedido Interno (PIM)</div>
-                <div class="mod-desc">Solicitud interna de materiales</div>
-            </div>
+    <div class="col-6 col-sm-3 col-lg-2">
+        <a href="{{ url_for('pedidos.pedido_interno') }}" class="quick-action">
+            <div class="qa-icon" style="background:#1976d2"><i class="fas fa-file-alt"></i></div>
+            <div class="qa-label">Nuevo Pedido</div>
         </a>
     </div>
     {% endif %}
 
-    <div class="col-6 col-lg-3">
-        <a href="{{ url_for('estado.estado_pedido') }}" class="mod-card">
-            <div class="mod-icon"><i class="fas fa-search"></i></div>
-            <div>
-                <div class="mod-title">Estado de Pedidos</div>
-                <div class="mod-desc">Consultar estado de solicitudes</div>
-            </div>
+    <div class="col-6 col-sm-3 col-lg-2">
+        <a href="{{ url_for('estado.estado_pedido') }}" class="quick-action">
+            <div class="qa-icon" style="background:#6c757d"><i class="fas fa-search"></i></div>
+            <div class="qa-label">Consultar Estado</div>
         </a>
     </div>
 
-    <div class="col-6 col-lg-3">
-        <a href="{{ url_for('imprimir.imprimir') }}" class="mod-card">
-            <div class="mod-icon"><i class="fas fa-print"></i></div>
-            <div>
-                <div class="mod-title">Imprimir Vales</div>
-                <div class="mod-desc">PDFs de retiro y pedidos</div>
-            </div>
+    <div class="col-6 col-sm-3 col-lg-2">
+        <a href="{{ url_for('imprimir.imprimir') }}" class="quick-action">
+            <div class="qa-icon" style="background:#495057"><i class="fas fa-print"></i></div>
+            <div class="qa-label">Imprimir Vale</div>
         </a>
     </div>
+
+    {% if session.get('tipo','').upper() in ('N','M','A','J') %}
+    <div class="col-6 col-sm-3 col-lg-2">
+        <a href="{{ url_for('almacenes.panel') }}" class="quick-action">
+            <div class="qa-icon" style="background:#198754"><i class="fas fa-warehouse"></i></div>
+            <div class="qa-label">Panel Almacenes</div>
+        </a>
+    </div>
+    {% endif %}
 
 </div>
 
-{% if session.get('tipo','').upper() in ('N','M','A','J') %}
-<!-- Módulo Almacenes -->
-<div class="sec-label"><i class="fas fa-warehouse me-1"></i>Gestión de almacenes</div>
-
-<div class="row g-2 mb-3">
-    <div class="col-6 col-lg-3">
-        <a href="{{ url_for('almacenes.panel') }}" class="mod-card mod-card--green">
-            <div class="mod-icon mod-icon--green"><i class="fas fa-warehouse"></i></div>
-            <div>
-                <div class="mod-title mod-title--green">Almacenes</div>
-                <div class="mod-desc">Autorizar y registrar entregas</div>
+<!-- ── Actividad reciente ──────────────────────────────────────────────── -->
+<div class="card" style="border-radius:.75rem;border:none;box-shadow:0 2px 8px rgba(0,0,0,.07)">
+    <div class="card-header bg-white border-bottom"
+         style="font-weight:600;color:var(--refsa-blue);border-radius:.75rem .75rem 0 0 !important">
+        <i class="fas fa-history me-2"></i>Actividad reciente
+    </div>
+    <div class="card-body py-2 px-3">
+        {% if actividad %}
+        {% for a in actividad %}
+        <div class="activity-item d-flex align-items-start gap-3">
+            <div class="activity-dot mt-1
+                {% if a.estado == 32 %}bg-success
+                {% elif a.estado == 31 %}bg-info
+                {% elif a.estado == 30 %}bg-warning
+                {% else %}bg-secondary{% endif %}">
             </div>
-        </a>
+            <div class="flex-fill">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <span class="fw-semibold small">Vale #{{ a.id }}</span>
+                        <span class="badge ms-1
+                            {% if a.estado == 32 %}bg-success
+                            {% elif a.estado == 31 %}bg-info
+                            {% elif a.estado == 30 %}bg-warning text-dark
+                            {% else %}bg-secondary{% endif %}"
+                            style="font-size:.65rem">
+                            {% if a.estado == 32 %}Entregado
+                            {% elif a.estado == 31 %}Parcial
+                            {% elif a.estado == 30 %}Pendiente
+                            {% else %}Baja{% endif %}
+                        </span>
+                    </div>
+                    <span class="text-secondary" style="font-size:.72rem;white-space:nowrap">{{ a.fecha }}</span>
+                </div>
+                <div class="text-secondary" style="font-size:.75rem">
+                    {{ a.quien or '—' }}
+                    {% if a.sector %}<span class="ms-2 text-muted">· {{ a.sector }}</span>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="text-center text-muted py-3 small">Sin actividad reciente</div>
+        {% endif %}
     </div>
 </div>
-{% endif %}
 
 {% endblock %}
