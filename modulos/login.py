@@ -1,14 +1,9 @@
 from flask import Blueprint, render_template, request, redirect, session, url_for, flash, jsonify, make_response
 from conexiones import conn, cursor, check_connection
-import hashlib
 
 login_bp = Blueprint('login', __name__)
 
 conn, cursor = check_connection(conn, cursor, 'comun')
-
-
-def encriptar_clave(clave):
-    return hashlib.sha256(clave.encode()).hexdigest()
 
 
 def _foxpro_pass_check(clave, nombre, pass_hex):
@@ -16,19 +11,17 @@ def _foxpro_pass_check(clave, nombre, pass_hex):
     Verifica la clave contra el campo Pass del sistema FoxPro.
     Algoritmo extraído del exe:
         result += CHR(BITXOR(ASC(clave[i]), ASC(nombre[MOD(i, len(nombre))+1]) * 2))
-    El Pass en MySQL está guardado en Latin-1 pero viaja como UTF-8 por la conexión,
-    por eso se convierte via HEX() → bytes → UTF-8 → cp1252.
+    XOR simétrico: misma operación para cifrar y descifrar.
+    Pass en MySQL viaja como UTF-8 → se convierte a cp1252 para obtener los bytes originales.
     """
     if not pass_hex or not clave or not nombre:
         return False
     try:
         nombre = nombre.strip()
         lnombre = len(nombre)
-        # Reconstruir bytes originales: HEX es UTF-8, el Pass era cp1252
         stored_bytes = bytes.fromhex(pass_hex).decode('utf-8').encode('cp1252', errors='replace')
         if len(stored_bytes) != len(clave):
             return False
-        # Cifrar la clave ingresada con el mismo algoritmo (XOR simétrico)
         result = b''
         for i, ch in enumerate(clave.encode('cp1252', errors='replace'), start=1):
             key_byte = (ord(nombre[i % lnombre]) * 2) & 0xFF
@@ -53,37 +46,18 @@ def login():
             flash('Debe ingresar usuario y clave.', 'danger')
             return render_template('login.html')
 
-        clave_hash = encriptar_clave(clave)
-
         cursor.execute(
-            "SELECT DescOperario, Pass2, Tipo, HEX(Pass) FROM comun.operarios WHERE IdOperario = %s",
+            "SELECT DescOperario, Tipo, HEX(Pass) FROM comun.operarios WHERE IdOperario = %s",
             (usuario,)
         )
         result = cursor.fetchone()
 
         if result:
             nombre   = result[0].strip()
-            pass2    = (result[1] or '').strip()
-            tipo     = (result[2] or '').strip()
-            pass_hex = result[3] or ''
+            tipo     = (result[1] or '').strip()
+            pass_hex = result[2] or ''
 
-            autenticado = False
-
-            if pass2:
-                # Camino normal: verificar SHA256
-                autenticado = (pass2 == clave_hash)
-            else:
-                # Sin Pass2 aún: verificar con algoritmo FoxPro legacy
-                if _foxpro_pass_check(clave, nombre, pass_hex):
-                    # Migrar silenciosamente a SHA256
-                    cursor.execute(
-                        "UPDATE comun.operarios SET Pass2 = %s WHERE IdOperario = %s",
-                        (clave_hash, usuario)
-                    )
-                    conn.commit()
-                    autenticado = True
-
-            if not autenticado:
+            if not _foxpro_pass_check(clave, nombre, pass_hex):
                 flash('Credenciales inválidas', 'danger')
                 return render_template('login.html')
 
