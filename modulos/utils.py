@@ -1,19 +1,26 @@
 from functools import wraps
 from flask import session, redirect, url_for, make_response, jsonify, request
 
-# Tipos que corresponden a personal de almacenes
-_TIPOS_ALMACENES = {'N', 'M'}
-_TIPOS_ADMIN     = {'A', 'J'}
+# Prefijos que corresponden a personal de almacenes (N, N0, N1, M, M0, M1…)
+_PREFIJOS_ALMACENES = ('N', 'M')
+_PREFIJOS_ADMIN     = ('A', 'J')
 
 
 def _tipo():
     return (session.get('tipo') or '').strip().upper()
 
+def _es_almacenes(t):
+    return t.startswith(_PREFIJOS_ALMACENES)
+
+def _es_admin(t):
+    return t.startswith(_PREFIJOS_ADMIN)
+
 def puede_almacenes():
-    return _tipo() in _TIPOS_ALMACENES or _tipo() in _TIPOS_ADMIN
+    t = _tipo()
+    return _es_almacenes(t) or _es_admin(t)
 
 def puede_pim():
-    return _tipo() not in _TIPOS_ALMACENES
+    return not _es_almacenes(_tipo())
 
 
 def login_requerido(f):
