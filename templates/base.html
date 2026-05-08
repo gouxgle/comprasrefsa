@@ -102,7 +102,7 @@
                         </a>
                     </li>
 
-                    {% if session.get('tipo','').upper() not in ('N','M') %}
+                    {% if session.get('tipo','')[:1].upper() not in ('N','M') %}
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'pedidos.pedido_interno' %}active{% endif %}"
                            href="{{ url_for('pedidos.pedido_interno') }}">
@@ -128,7 +128,7 @@
                         </a>
                     </li>
 
-                    {% if session.get('tipo','').upper() in ('N','M','A','J') %}
+                    {% if session.get('tipo','')[:1].upper() in ('N','M','A','J') %}
                     <li class="nav-item">
                         <span class="nav-section-label px-3 pt-3 pb-1"
                               style="font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;display:block">
