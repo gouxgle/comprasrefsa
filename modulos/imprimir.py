@@ -24,7 +24,8 @@ def imprimir():
     conn, cursor = check_connection(conn, cursor, 'comun')
     conn_almacenes, cursor_almacenes = check_connection(conn_almacenes, cursor_almacenes, 'almacenes')
 
-    usuario_id = session.get('id')
+    usuario_id  = session.get('id')
+    id_sector   = session.get('id_sector')
 
     cursor_almacenes.execute("""
         SELECT p.idpedidovirtual, p.fecha, COUNT(d.renglon) AS total_items,
@@ -34,11 +35,11 @@ def imprimir():
                ON d.idpedidovirtual = p.idpedidovirtual
         LEFT JOIN almacenes.autorizaciones a
                ON a.idautorizacion = p.autorizacion
-        WHERE p.quienpidio = %s
+        WHERE p.quienpidio = %s OR p.jefatura = %s
         GROUP BY p.idpedidovirtual, p.fecha, p.autorizacion, a.autorizacion
         ORDER BY p.idpedidovirtual DESC
-        LIMIT 100
-    """, (usuario_id,))
+        LIMIT 200
+    """, (usuario_id, id_sector))
     pims = [
         {
             'id':         r[0],
@@ -62,11 +63,11 @@ def imprimir():
                ON op.IdOperario = r.quienretiro
         LEFT JOIN comun.jefaturas j
                ON j.idjefatura = r.destino
-        WHERE r.quienpidio = %s
+        WHERE r.quienpidio = %s OR r.sector = %s
         GROUP BY r.idretiro, r.fechapedido, op.DescOperario, j.jefatura
         ORDER BY r.idretiro DESC
-        LIMIT 100
-    """, (usuario_id,))
+        LIMIT 200
+    """, (usuario_id, id_sector))
     retiros = [
         {
             'id':      r[0],
