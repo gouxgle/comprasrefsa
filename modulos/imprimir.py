@@ -1,7 +1,7 @@
 # modulos/imprimir.py
 from flask import Blueprint, render_template, session, make_response
 from conexiones import cursor, check_connection, conn, conn_almacenes, cursor_almacenes
-from modulos.utils import login_requerido
+from modulos.utils import login_requerido, puede_almacenes
 from io import BytesIO
 
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable, Image, KeepTogether
@@ -26,20 +26,36 @@ def imprimir():
 
     usuario_id  = session.get('id')
     id_sector   = session.get('id_sector')
+    es_almacen  = puede_almacenes()
 
-    cursor_almacenes.execute("""
-        SELECT p.idpedidovirtual, p.fecha, COUNT(d.renglon) AS total_items,
-               p.autorizacion AS auth_id, a.autorizacion AS auth_texto
-        FROM almacenes.pedidosvirtuales p
-        LEFT JOIN almacenes.detallespedidosvirtuales d
-               ON d.idpedidovirtual = p.idpedidovirtual
-        LEFT JOIN almacenes.autorizaciones a
-               ON a.idautorizacion = p.autorizacion
-        WHERE p.quienpidio = %s OR p.jefatura = %s
-        GROUP BY p.idpedidovirtual, p.fecha, p.autorizacion, a.autorizacion
-        ORDER BY p.idpedidovirtual DESC
-        LIMIT 200
-    """, (usuario_id, id_sector))
+    # Almacén/admin ve todos los PIMs; usuarios regulares ven los suyos + su sector
+    if es_almacen:
+        cursor_almacenes.execute("""
+            SELECT p.idpedidovirtual, p.fecha, COUNT(d.renglon) AS total_items,
+                   p.autorizacion AS auth_id, a.autorizacion AS auth_texto
+            FROM almacenes.pedidosvirtuales p
+            LEFT JOIN almacenes.detallespedidosvirtuales d
+                   ON d.idpedidovirtual = p.idpedidovirtual
+            LEFT JOIN almacenes.autorizaciones a
+                   ON a.idautorizacion = p.autorizacion
+            GROUP BY p.idpedidovirtual, p.fecha, p.autorizacion, a.autorizacion
+            ORDER BY p.idpedidovirtual DESC
+            LIMIT 500
+        """)
+    else:
+        cursor_almacenes.execute("""
+            SELECT p.idpedidovirtual, p.fecha, COUNT(d.renglon) AS total_items,
+                   p.autorizacion AS auth_id, a.autorizacion AS auth_texto
+            FROM almacenes.pedidosvirtuales p
+            LEFT JOIN almacenes.detallespedidosvirtuales d
+                   ON d.idpedidovirtual = p.idpedidovirtual
+            LEFT JOIN almacenes.autorizaciones a
+                   ON a.idautorizacion = p.autorizacion
+            WHERE p.quienpidio = %s OR p.jefatura = %s
+            GROUP BY p.idpedidovirtual, p.fecha, p.autorizacion, a.autorizacion
+            ORDER BY p.idpedidovirtual DESC
+            LIMIT 200
+        """, (usuario_id, id_sector))
     pims = [
         {
             'id':         r[0],
@@ -51,23 +67,42 @@ def imprimir():
         for r in cursor_almacenes.fetchall()
     ]
 
-    cursor_almacenes.execute("""
-        SELECT r.idretiro, r.fechapedido,
-               COALESCE(op.DescOperario, '') AS nombre_retira,
-               j.jefatura AS sector_nombre,
-               COUNT(d.renglon) AS total_items
-        FROM almacenes.retiromateriales r
-        LEFT JOIN almacenes.detallesretiromateriales d
-               ON d.idretiro = r.idretiro
-        LEFT JOIN comun.operarios op
-               ON op.IdOperario = r.quienretiro
-        LEFT JOIN comun.jefaturas j
-               ON j.idjefatura = r.destino
-        WHERE r.quienpidio = %s OR r.sector = %s
-        GROUP BY r.idretiro, r.fechapedido, op.DescOperario, j.jefatura
-        ORDER BY r.idretiro DESC
-        LIMIT 200
-    """, (usuario_id, id_sector))
+    # Almacén/admin ve todos los retiros; usuarios regulares ven los suyos + su sector
+    if es_almacen:
+        cursor_almacenes.execute("""
+            SELECT r.idretiro, r.fechapedido,
+                   COALESCE(op.DescOperario, '') AS nombre_retira,
+                   j.jefatura AS sector_nombre,
+                   COUNT(d.renglon) AS total_items
+            FROM almacenes.retiromateriales r
+            LEFT JOIN almacenes.detallesretiromateriales d
+                   ON d.idretiro = r.idretiro
+            LEFT JOIN comun.operarios op
+                   ON op.IdOperario = r.quienretiro
+            LEFT JOIN comun.jefaturas j
+                   ON j.idjefatura = r.destino
+            GROUP BY r.idretiro, r.fechapedido, op.DescOperario, j.jefatura
+            ORDER BY r.idretiro DESC
+            LIMIT 500
+        """)
+    else:
+        cursor_almacenes.execute("""
+            SELECT r.idretiro, r.fechapedido,
+                   COALESCE(op.DescOperario, '') AS nombre_retira,
+                   j.jefatura AS sector_nombre,
+                   COUNT(d.renglon) AS total_items
+            FROM almacenes.retiromateriales r
+            LEFT JOIN almacenes.detallesretiromateriales d
+                   ON d.idretiro = r.idretiro
+            LEFT JOIN comun.operarios op
+                   ON op.IdOperario = r.quienretiro
+            LEFT JOIN comun.jefaturas j
+                   ON j.idjefatura = r.destino
+            WHERE r.quienpidio = %s OR r.sector = %s
+            GROUP BY r.idretiro, r.fechapedido, op.DescOperario, j.jefatura
+            ORDER BY r.idretiro DESC
+            LIMIT 200
+        """, (usuario_id, id_sector))
     retiros = [
         {
             'id':      r[0],
