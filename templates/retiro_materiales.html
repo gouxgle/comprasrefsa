@@ -79,11 +79,13 @@
                                 {% for m in materiales %}
                                 <option value="{{ m[0] }}|{{ m[1] }}"
                                         data-stock="{{ m[3] if m[3] else 0 }}">
-                                    {{ m[0] }}-{{ m[1] }} | {{ m[2] }} &nbsp;(Stock: {{ m[3] if m[3] else 0 }})
+                                    {{ m[0] }}-{{ m[1] }} | {{ m[2] }}
                                 </option>
                                 {% endfor %}
                             </select>
-                            <div id="stockInfo" class="form-text mt-1"></div>
+                        </div>
+                        <div class="col-12">
+                            <div id="stockInfo"></div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">
@@ -316,9 +318,14 @@ $(document).ready(function() {
     $('#material').on('change', function() {
         var stock = $(this).find(':selected').data('stock');
         if ($(this).val() && stock !== undefined) {
-            var cls  = stock > 0 ? 'text-success' : 'text-danger';
-            var icon = stock > 0 ? 'check-circle' : 'times-circle';
-            $('#stockInfo').html('<i class="fas fa-' + icon + ' ' + cls + ' me-1"></i>Stock disponible: <strong>' + stock + '</strong>');
+            var ok   = stock > 0;
+            var bg   = ok ? 'bg-success' : 'bg-danger';
+            var icon = ok ? 'check-circle' : 'times-circle';
+            $('#stockInfo').html(
+                '<span class="badge ' + bg + ' px-3 py-2 mt-2" style="font-size:.85rem">' +
+                '<i class="fas fa-' + icon + ' me-2"></i>Stock actual: ' + stock +
+                '</span>'
+            );
             $('#cantidad').focus();
         } else {
             $('#stockInfo').html('');
