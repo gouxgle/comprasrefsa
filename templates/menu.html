@@ -20,20 +20,18 @@
 
 /* ── KPI cards ────────────────────────────────────────────── */
 .kpi-card {
-    background: #fff; border-radius: 16px;
-    padding: 20px 22px;
-    box-shadow: 0 2px 12px rgba(0,0,0,.07);
-    display: flex; align-items: center; gap: 16px;
+    background: #fff; border-radius: 12px;
+    padding: 14px 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    display: flex; align-items: center; gap: 14px;
     height: 100%;
 }
 .kpi-icon {
-    width: 58px; height: 58px; border-radius: 14px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.55rem; flex-shrink: 0;
+    flex-shrink: 0;
 }
-.kpi-value { font-size: 2.3rem; font-weight: 800; line-height: 1; }
-.kpi-label { font-size: .75rem; color: #7c8fa4; text-transform: uppercase; letter-spacing: .04em; margin-top: 3px; }
-.kpi-sub   { font-size: .72rem; color: #b0bec5; }
+.kpi-value { font-size: 1.7rem; font-weight: 800; line-height: 1; }
+.kpi-label { font-size: .72rem; color: #7c8fa4; text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
 
 /* ── Section label ────────────────────────────────────────── */
 .sec-label {
@@ -133,60 +131,6 @@
     </div>
 </div>
 
-<!-- ── KPIs ───────────────────────────────────────────────────── -->
-<div class="row g-3 mb-4">
-    <div class="col-6 col-xl-3">
-        <div class="kpi-card">
-            <div class="kpi-icon" style="background:#e3f0fd;color:#1565c0">
-                <i class="fas fa-dolly"></i>
-            </div>
-            <div>
-                <div class="kpi-value">{{ kpi.total_mes }}</div>
-                <div class="kpi-label">Pedidos Totales</div>
-                <div class="kpi-sub">este mes</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-xl-3">
-        <div class="kpi-card">
-            <div class="kpi-icon" style="background:#fff8e1;color:#f59f00">
-                <i class="fas fa-clock"></i>
-            </div>
-            <div>
-                <div class="kpi-value">{{ kpi.pendientes }}</div>
-                <div class="kpi-label">Pendientes</div>
-                <div class="kpi-sub">requieren atención</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-xl-3">
-        <div class="kpi-card">
-            <div class="kpi-icon" style="background:#d1fae5;color:#198754">
-                <i class="fas fa-check-circle"></i>
-            </div>
-            <div>
-                <div class="kpi-value">{{ kpi.entregados }}</div>
-                <div class="kpi-label">Entregas Realizadas</div>
-                <div class="kpi-sub">este mes</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-xl-3">
-        <div class="kpi-card">
-            <div class="kpi-icon" style="background:#ffe4e6;color:#dc3545">
-                <i class="fas fa-exclamation-triangle"></i>
-            </div>
-            <div>
-                <div class="kpi-value {% if kpi.criticos > 0 %}text-danger{% endif %}">
-                    {{ kpi.criticos }}
-                </div>
-                <div class="kpi-label">Críticos / Urgentes</div>
-                <div class="kpi-sub">acción requerida</div>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- ── Módulos principales ────────────────────────────────────── -->
 <div class="sec-label"><i class="fas fa-th-large"></i>Módulos principales</div>
 <div class="row g-3 mb-4">
@@ -250,6 +194,57 @@
     </div>
     {% endif %}
 
+</div>
+
+<!-- ── KPIs (compactos) ───────────────────────────────────────── -->
+<div class="sec-label mb-2"><i class="fas fa-chart-bar"></i>Resumen del mes</div>
+<div class="row g-2 mb-4">
+    <div class="col-6 col-xl-3">
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background:#e3f0fd;color:#1565c0;width:44px;height:44px;border-radius:10px;font-size:1.2rem">
+                <i class="fas fa-dolly"></i>
+            </div>
+            <div>
+                <div class="kpi-value" style="font-size:1.7rem">{{ kpi.total_mes }}</div>
+                <div class="kpi-label">Pedidos Totales</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background:#fff8e1;color:#f59f00;width:44px;height:44px;border-radius:10px;font-size:1.2rem">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div>
+                <div class="kpi-value" style="font-size:1.7rem">{{ kpi.pendientes }}</div>
+                <div class="kpi-label">Pendientes</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background:#d1fae5;color:#198754;width:44px;height:44px;border-radius:10px;font-size:1.2rem">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div>
+                <div class="kpi-value" style="font-size:1.7rem">{{ kpi.entregados }}</div>
+                <div class="kpi-label">Entregas Realizadas</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background:#ffe4e6;color:#dc3545;width:44px;height:44px;border-radius:10px;font-size:1.2rem">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div>
+                <div class="kpi-value {% if kpi.criticos > 0 %}text-danger{% endif %}" style="font-size:1.7rem">
+                    {{ kpi.criticos }}
+                </div>
+                <div class="kpi-label">Críticos (+3 días)</div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ── Actividad + Alertas ────────────────────────────────────── -->

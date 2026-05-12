@@ -159,13 +159,12 @@ def retiro_materiales():
     tiene_motivo = id_sector in SECTORES_CON_MOTIVO
     tiene_cargo = id_sector == SECTOR_HIGIENE
 
-    # Materiales del sector — stock real desde materiales, no el mínimo del sector
+    # Materiales del sector — stock de la vista (= stock por sector, coincide con FoxPro)
     cursor_almacenes.execute("""
-        SELECT v.cd1, v.cd2, v.material, m.stock
-        FROM almacenes.vmaterialesdesectores v
-        JOIN almacenes.materiales m ON m.cd1 = v.cd1 AND m.cd2 = v.cd2
-        WHERE v.sector = %s
-        ORDER BY v.cd1, v.cd2
+        SELECT cd1, cd2, material, stock
+        FROM almacenes.vmaterialesdesectores
+        WHERE sector = %s
+        ORDER BY cd1, cd2
     """, (id_sector,))
     materiales = cursor_almacenes.fetchall()
 
