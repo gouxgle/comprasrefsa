@@ -1,212 +1,408 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — Sistema de Almacenes REFSA{% endblock %}
-{% block page_title %}Dashboard{% endblock %}
 
 {% block extra_css %}
 <style>
-/* ── KPI cards ──────────────────────────────────────────────────── */
-.kpi-card { border:none; border-radius:.75rem; box-shadow:0 2px 8px rgba(0,0,0,.07); }
-.kpi-card .kpi-value { font-size:2rem; font-weight:700; line-height:1; }
-.kpi-card .kpi-label { font-size:.75rem; color:#6c757d; text-transform:uppercase; letter-spacing:.04em; }
-
-/* ── Acción rápida ──────────────────────────────────────────────── */
-.quick-action {
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:.5rem; padding:1.1rem .5rem;
-    border:1px solid #e6eaf0; border-radius:.65rem; background:#fff;
-    text-decoration:none; color:#333; transition:all .15s; text-align:center;
+/* ── Hero banner ──────────────────────────────────────────── */
+.hero {
+    background: linear-gradient(130deg, #1565c0 0%, #1e88e5 55%, #82b1ff 100%);
+    border-radius: 18px;
+    padding: 28px 32px;
+    margin-bottom: 22px;
+    position: relative;
+    overflow: hidden;
+    display: flex; align-items: center; gap: 16px;
+    min-height: 130px;
 }
-.quick-action:hover { border-color:#90b4e0; box-shadow:0 3px 12px rgba(13,71,161,.12); color:#0d47a1; background:#f5f8ff; }
-.quick-action .qa-icon {
-    width:42px; height:42px; border-radius:.5rem;
-    display:flex; align-items:center; justify-content:center;
-    font-size:1.1rem; color:#fff;
+.hero-text { flex: 1; }
+.hero-text h2 {
+    color: #fff; font-size: 1.85rem; font-weight: 800;
+    margin: 0 0 6px; line-height: 1.15;
 }
-.quick-action .qa-label { font-size:.78rem; font-weight:600; line-height:1.2; }
+.hero-text p { color: rgba(255,255,255,.87); margin: 0; font-size: 1rem; }
+.hero-deco {
+    position: absolute; right: 240px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 8rem; color: rgba(255,255,255,.10);
+    pointer-events: none; line-height: 1;
+}
+.hero-date {
+    flex-shrink: 0;
+    background: rgba(255,255,255,.16);
+    border: 1px solid rgba(255,255,255,.28);
+    border-radius: 14px;
+    padding: 14px 22px;
+    color: #fff; text-align: center;
+    backdrop-filter: blur(6px);
+    min-width: 175px;
+}
+.hero-date .hd-icon { font-size: 1.6rem; margin-bottom: 5px; opacity: .9; }
+.hero-date .hd-date { font-size: .95rem; font-weight: 700; line-height: 1.3; }
+.hero-date .hd-time { font-size: .8rem; opacity: .8; margin-top: 2px; }
 
-/* ── Actividad reciente ─────────────────────────────────────────── */
-.activity-item { padding:.55rem 0; border-bottom:1px solid #f0f2f5; }
-.activity-item:last-child { border-bottom:none; }
-.activity-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+/* ── KPI cards ────────────────────────────────────────────── */
+.kpi-card {
+    background: #fff; border-radius: 16px;
+    padding: 20px 22px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.07);
+    display: flex; align-items: center; gap: 16px;
+    height: 100%;
+}
+.kpi-icon {
+    width: 58px; height: 58px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.55rem; flex-shrink: 0;
+}
+.kpi-value { font-size: 2.3rem; font-weight: 800; line-height: 1; }
+.kpi-label { font-size: .75rem; color: #7c8fa4; text-transform: uppercase; letter-spacing: .04em; margin-top: 3px; }
+.kpi-sub   { font-size: .72rem; color: #b0bec5; }
+
+/* ── Section label ────────────────────────────────────────── */
+.sec-label {
+    font-size: .72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .07em; color: #90a4ae;
+    margin-bottom: 12px; display: flex; align-items: center; gap: 7px;
+}
+
+/* ── Module cards ─────────────────────────────────────────── */
+.mod-card {
+    background: #fff; border-radius: 16px;
+    padding: 20px 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.07);
+    display: flex; align-items: center; gap: 16px;
+    text-decoration: none; color: #2c3e50;
+    transition: all .18s;
+    border: 2px solid transparent;
+    height: 100%;
+}
+.mod-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(21,101,192,.15);
+    border-color: #c5dcff;
+    color: #1565c0;
+}
+.mod-icon {
+    width: 58px; height: 58px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.45rem; color: #fff; flex-shrink: 0;
+}
+.mod-name  { font-size: 1rem; font-weight: 700; line-height: 1.2; }
+.mod-desc  { font-size: .78rem; color: #7c8fa4; margin-top: 3px; }
+.mod-arrow { margin-left: auto; color: #cfd8dc; font-size: .9rem; transition: color .15s; }
+.mod-card:hover .mod-arrow { color: #1565c0; }
+
+/* ── Panel cards ──────────────────────────────────────────── */
+.panel-card {
+    background: #fff; border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.07);
+    overflow: hidden; height: 100%;
+}
+.panel-hdr {
+    padding: 14px 20px;
+    font-size: .78rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .05em; color: #1565c0;
+    border-bottom: 1px solid #eef2f7;
+    display: flex; align-items: center; gap: 7px;
+    background: #fafbff;
+}
+
+/* activity */
+.act-row {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 11px 20px; border-bottom: 1px solid #f5f7fa;
+}
+.act-row:last-child { border-bottom: none; }
+.act-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    flex-shrink: 0; margin-top: 5px;
+}
+.act-title { font-size: .88rem; font-weight: 600; line-height: 1.3; }
+.act-sub   { font-size: .76rem; color: #90a4ae; }
+.act-time  { margin-left: auto; font-size: .71rem; color: #b0bec5; white-space: nowrap; padding-left: 8px; }
+
+/* alerts */
+.alr-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px; border-bottom: 1px solid #f5f7fa;
+}
+.alr-row:last-child { border-bottom: none; }
+.alr-icon {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; flex-shrink: 0;
+}
+.alr-title { font-size: .88rem; font-weight: 600; }
+.alr-sub   { font-size: .76rem; color: #90a4ae; }
+.alr-link  { margin-left: auto; font-size: .76rem; font-weight: 700;
+             white-space: nowrap; text-decoration: none; padding-left: 8px; }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- ── Header ──────────────────────────────────────────────────────────── -->
-<div class="d-flex align-items-start justify-content-between mb-4">
-    <div>
-        <h2 class="mb-1" style="color:var(--refsa-blue);font-weight:700">
-            {{ saludo }}, {{ usuario.split()[0] | title }}
-        </h2>
-        <div class="text-secondary">
-            <i class="fas fa-building me-1"></i>
-            Centro Operativo de Almacenes
-            {% if sector_nombre %}· {{ sector_nombre | upper }}{% endif %}
-        </div>
+<!-- ── Hero ───────────────────────────────────────────────────── -->
+<div class="hero mb-4">
+    <div class="hero-text">
+        <h2>¡{{ saludo }}, {{ usuario.split()[0] | title }}!</h2>
+        <p>
+            <i class="fas fa-building me-1"></i>Centro Operativo de Almacenes
+            {% if sector_nombre %}&nbsp;·&nbsp;<strong>{{ sector_nombre | upper }}</strong>{% endif %}
+        </p>
     </div>
-    <div class="text-end text-secondary small d-none d-md-block">
-        <i class="fas fa-calendar-alt me-1"></i>{{ hoy }}
+    <div class="hero-deco"><i class="fas fa-warehouse"></i></div>
+    <div class="hero-date">
+        <div class="hd-icon"><i class="fas fa-calendar-alt"></i></div>
+        <div class="hd-date">{{ hoy }}</div>
+        <div class="hd-time" id="live-time"></div>
     </div>
 </div>
 
-<!-- ── KPIs ────────────────────────────────────────────────────────────── -->
+<!-- ── KPIs ───────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-xl-3">
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background:#e3f0fd;color:#1565c0">
+                <i class="fas fa-dolly"></i>
+            </div>
+            <div>
+                <div class="kpi-value">{{ kpi.total_mes }}</div>
+                <div class="kpi-label">Pedidos Totales</div>
+                <div class="kpi-sub">este mes</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background:#fff8e1;color:#f59f00">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div>
+                <div class="kpi-value">{{ kpi.pendientes }}</div>
+                <div class="kpi-label">Pendientes</div>
+                <div class="kpi-sub">requieren atención</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background:#d1fae5;color:#198754">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div>
+                <div class="kpi-value">{{ kpi.entregados }}</div>
+                <div class="kpi-label">Entregas Realizadas</div>
+                <div class="kpi-sub">este mes</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background:#ffe4e6;color:#dc3545">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div>
+                <div class="kpi-value {% if kpi.criticos > 0 %}text-danger{% endif %}">
+                    {{ kpi.criticos }}
+                </div>
+                <div class="kpi-label">Críticos / Urgentes</div>
+                <div class="kpi-sub">acción requerida</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Módulos principales ────────────────────────────────────── -->
+<div class="sec-label"><i class="fas fa-th-large"></i>Módulos principales</div>
 <div class="row g-3 mb-4">
 
-    <div class="col-6 col-lg-3">
-        <div class="card kpi-card p-3">
-            <div class="d-flex align-items-center gap-3">
-                <div class="kpi-icon rounded-3"
-                     style="background:#e3f2fd;color:#0d47a1;width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-size:1.3rem">
-                    <i class="fas fa-dolly"></i>
-                </div>
-                <div>
-                    <div class="kpi-value">{{ kpi.total_mes }}</div>
-                    <div class="kpi-label">Vales este mes</div>
-                </div>
+    <div class="col-12 col-sm-6 col-lg-4">
+        <a href="{{ url_for('retiro.retiro_materiales') }}" class="mod-card">
+            <div class="mod-icon" style="background:#1565c0"><i class="fas fa-dolly"></i></div>
+            <div>
+                <div class="mod-name">Retiro de Materiales</div>
+                <div class="mod-desc">Registrar salida de materiales</div>
             </div>
-        </div>
-    </div>
-
-    <div class="col-6 col-lg-3">
-        <div class="card kpi-card p-3">
-            <div class="d-flex align-items-center gap-3">
-                <div class="kpi-icon rounded-3"
-                     style="background:#fff8e1;color:#f59f00;width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-size:1.3rem">
-                    <i class="fas fa-clock"></i>
-                </div>
-                <div>
-                    <div class="kpi-value">{{ kpi.pendientes }}</div>
-                    <div class="kpi-label">Pendientes</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-6 col-lg-3">
-        <div class="card kpi-card p-3">
-            <div class="d-flex align-items-center gap-3">
-                <div class="kpi-icon rounded-3"
-                     style="background:#d1fae5;color:#198754;width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-size:1.3rem">
-                    <i class="fas fa-check-circle"></i>
-                </div>
-                <div>
-                    <div class="kpi-value">{{ kpi.entregados }}</div>
-                    <div class="kpi-label">Entregados</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-6 col-lg-3">
-        <div class="card kpi-card p-3">
-            <div class="d-flex align-items-center gap-3">
-                <div class="kpi-icon rounded-3"
-                     style="background:#ffe4e6;color:#dc3545;width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-size:1.3rem">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </div>
-                <div>
-                    <div class="kpi-value {% if kpi.criticos > 0 %}text-danger{% endif %}">{{ kpi.criticos }}</div>
-                    <div class="kpi-label">Críticos (+3 días)</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-</div>
-
-<!-- ── Acciones rápidas ─────────────────────────────────────────────────── -->
-<div class="mb-1" style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#aaa">
-    <i class="fas fa-bolt me-1"></i>Acciones rápidas
-</div>
-<div class="row g-2 mb-4">
-
-    <div class="col-6 col-sm-3 col-lg-2">
-        <a href="{{ url_for('retiro.retiro_materiales') }}" class="quick-action">
-            <div class="qa-icon" style="background:#0d47a1"><i class="fas fa-dolly"></i></div>
-            <div class="qa-label">Nuevo Retiro</div>
+            <div class="mod-arrow"><i class="fas fa-chevron-right"></i></div>
         </a>
     </div>
 
     {% if session.get('tipo','')[:1].upper() not in ('N','M') %}
-    <div class="col-6 col-sm-3 col-lg-2">
-        <a href="{{ url_for('pedidos.pedido_interno') }}" class="quick-action">
-            <div class="qa-icon" style="background:#1976d2"><i class="fas fa-file-alt"></i></div>
-            <div class="qa-label">Nuevo Pedido</div>
+    <div class="col-12 col-sm-6 col-lg-4">
+        <a href="{{ url_for('pedidos.pedido_interno') }}" class="mod-card">
+            <div class="mod-icon" style="background:#7b1fa2"><i class="fas fa-file-alt"></i></div>
+            <div>
+                <div class="mod-name">Pedido Interno</div>
+                <div class="mod-desc">Solicitud interna de materiales</div>
+            </div>
+            <div class="mod-arrow"><i class="fas fa-chevron-right"></i></div>
         </a>
     </div>
     {% endif %}
 
-    <div class="col-6 col-sm-3 col-lg-2">
-        <a href="{{ url_for('estado.estado_pedido') }}" class="quick-action">
-            <div class="qa-icon" style="background:#6c757d"><i class="fas fa-search"></i></div>
-            <div class="qa-label">Consultar Estado</div>
+    <div class="col-12 col-sm-6 col-lg-4">
+        <a href="{{ url_for('estado.estado_pedido') }}" class="mod-card">
+            <div class="mod-icon" style="background:#00897b"><i class="fas fa-search"></i></div>
+            <div>
+                <div class="mod-name">Estado de Pedidos</div>
+                <div class="mod-desc">Consultar estado de solicitudes</div>
+            </div>
+            <div class="mod-arrow"><i class="fas fa-chevron-right"></i></div>
         </a>
     </div>
 
-    <div class="col-6 col-sm-3 col-lg-2">
-        <a href="{{ url_for('imprimir.imprimir') }}" class="quick-action">
-            <div class="qa-icon" style="background:#495057"><i class="fas fa-print"></i></div>
-            <div class="qa-label">Imprimir Vale</div>
+    <div class="col-12 col-sm-6 col-lg-4">
+        <a href="{{ url_for('imprimir.imprimir') }}" class="mod-card">
+            <div class="mod-icon" style="background:#e65100"><i class="fas fa-print"></i></div>
+            <div>
+                <div class="mod-name">Imprimir Vales</div>
+                <div class="mod-desc">PDFs de retiro y pedidos</div>
+            </div>
+            <div class="mod-arrow"><i class="fas fa-chevron-right"></i></div>
         </a>
     </div>
 
     {% if session.get('tipo','')[:1].upper() in ('N','M','A','J') %}
-    <div class="col-6 col-sm-3 col-lg-2">
-        <a href="{{ url_for('almacenes.panel') }}" class="quick-action">
-            <div class="qa-icon" style="background:#198754"><i class="fas fa-warehouse"></i></div>
-            <div class="qa-label">Panel Almacenes</div>
+    <div class="col-12 col-sm-6 col-lg-4">
+        <a href="{{ url_for('almacenes.panel') }}" class="mod-card">
+            <div class="mod-icon" style="background:#2e7d32"><i class="fas fa-warehouse"></i></div>
+            <div>
+                <div class="mod-name">Almacenes</div>
+                <div class="mod-desc">Autorizar y registrar entregas</div>
+            </div>
+            <div class="mod-arrow"><i class="fas fa-chevron-right"></i></div>
         </a>
     </div>
     {% endif %}
 
 </div>
 
-<!-- ── Actividad reciente ──────────────────────────────────────────────── -->
-<div class="card" style="border-radius:.75rem;border:none;box-shadow:0 2px 8px rgba(0,0,0,.07)">
-    <div class="card-header bg-white border-bottom"
-         style="font-weight:600;color:var(--refsa-blue);border-radius:.75rem .75rem 0 0 !important">
-        <i class="fas fa-history me-2"></i>Actividad reciente
-    </div>
-    <div class="card-body py-2 px-3">
-        {% if actividad %}
-        {% for a in actividad %}
-        <div class="activity-item d-flex align-items-start gap-3">
-            <div class="activity-dot mt-1
-                {% if a.estado == 32 %}bg-success
-                {% elif a.estado == 31 %}bg-info
-                {% elif a.estado == 30 %}bg-warning
-                {% else %}bg-secondary{% endif %}">
-            </div>
-            <div class="flex-fill">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <span class="fw-semibold small">Vale #{{ a.id }}</span>
-                        <span class="badge ms-1
-                            {% if a.estado == 32 %}bg-success
-                            {% elif a.estado == 31 %}bg-info
-                            {% elif a.estado == 30 %}bg-warning text-dark
-                            {% else %}bg-secondary{% endif %}"
-                            style="font-size:.65rem">
-                            {% if a.estado == 32 %}Entregado
-                            {% elif a.estado == 31 %}Parcial
-                            {% elif a.estado == 30 %}Pendiente
-                            {% else %}Baja{% endif %}
-                        </span>
+<!-- ── Actividad + Alertas ────────────────────────────────────── -->
+<div class="row g-3">
+
+    <!-- Actividad reciente -->
+    <div class="col-12 col-lg-6">
+        <div class="panel-card">
+            <div class="panel-hdr"><i class="fas fa-history"></i>Actividad reciente</div>
+            {% if actividad %}
+                {% for a in actividad %}
+                <div class="act-row">
+                    <div class="act-dot
+                        {% if a.estado == 32 %}bg-success
+                        {% elif a.estado == 31 %}bg-info
+                        {% elif a.estado == 30 %}bg-warning
+                        {% else %}bg-secondary{% endif %}">
                     </div>
-                    <span class="text-secondary" style="font-size:.72rem;white-space:nowrap">{{ a.fecha }}</span>
+                    <div class="flex-fill">
+                        <div class="act-title">
+                            Vale #{{ a.id }}
+                            <span class="badge ms-1
+                                {% if a.estado == 32 %}bg-success
+                                {% elif a.estado == 31 %}bg-info
+                                {% elif a.estado == 30 %}bg-warning text-dark
+                                {% else %}bg-secondary{% endif %}"
+                                style="font-size:.62rem">
+                                {% if a.estado == 32 %}Entregado
+                                {% elif a.estado == 31 %}Parcial
+                                {% elif a.estado == 30 %}Pendiente
+                                {% else %}Baja{% endif %}
+                            </span>
+                        </div>
+                        <div class="act-sub">
+                            {{ a.quien or '—' }}
+                            {% if a.sector %}<span class="ms-2">· {{ a.sector }}</span>{% endif %}
+                        </div>
+                    </div>
+                    <div class="act-time">{{ a.fecha }}</div>
                 </div>
-                <div class="text-secondary" style="font-size:.75rem">
-                    {{ a.quien or '—' }}
-                    {% if a.sector %}<span class="ms-2 text-muted">· {{ a.sector }}</span>{% endif %}
+                {% endfor %}
+            {% else %}
+            <div class="text-center text-muted py-4 small">Sin actividad reciente</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Alertas y avisos -->
+    <div class="col-12 col-lg-6">
+        <div class="panel-card">
+            <div class="panel-hdr"><i class="fas fa-bell"></i>Alertas y avisos</div>
+
+            {% if kpi.criticos > 0 %}
+            <div class="alr-row">
+                <div class="alr-icon" style="background:#ffe4e6;color:#dc3545">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div>
+                    <div class="alr-title">Pedidos críticos</div>
+                    <div class="alr-sub">
+                        {{ kpi.criticos }} pedido{{ 's' if kpi.criticos != 1 else '' }}
+                        con más de 3 días sin atender
+                    </div>
+                </div>
+                <a href="{{ url_for('estado.estado_pedido') }}"
+                   class="alr-link text-danger">Ver pedidos</a>
+            </div>
+            {% endif %}
+
+            {% if kpi.pendientes > 0 %}
+            <div class="alr-row">
+                <div class="alr-icon" style="background:#fff8e1;color:#f59f00">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div>
+                    <div class="alr-title">Pedidos pendientes</div>
+                    <div class="alr-sub">
+                        {{ kpi.pendientes }} pedido{{ 's' if kpi.pendientes != 1 else '' }}
+                        requieren atención
+                    </div>
+                </div>
+                <a href="{{ url_for('estado.estado_pedido') }}"
+                   class="alr-link text-warning">Ver pedidos</a>
+            </div>
+            {% endif %}
+
+            <div class="alr-row">
+                <div class="alr-icon" style="background:#e8f5e9;color:#2e7d32">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div>
+                    <div class="alr-title">Entregas completadas</div>
+                    <div class="alr-sub">
+                        {{ kpi.entregados }} entrega{{ 's' if kpi.entregados != 1 else '' }}
+                        realizada{{ 's' if kpi.entregados != 1 else '' }} este mes
+                    </div>
+                </div>
+                <a href="{{ url_for('imprimir.imprimir') }}"
+                   class="alr-link text-success">Ver detalles</a>
+            </div>
+
+            {% if kpi.criticos == 0 and kpi.pendientes == 0 %}
+            <div class="alr-row">
+                <div class="alr-icon" style="background:#e3f0fd;color:#1565c0">
+                    <i class="fas fa-info-circle"></i>
+                </div>
+                <div>
+                    <div class="alr-title">Sin alertas pendientes</div>
+                    <div class="alr-sub">Todo al día</div>
                 </div>
             </div>
+            {% endif %}
+
         </div>
-        {% endfor %}
-        {% else %}
-        <div class="text-center text-muted py-3 small">Sin actividad reciente</div>
-        {% endif %}
     </div>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function tick() {
+    var n = new Date();
+    var h = n.getHours(), m = n.getMinutes();
+    var ap = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    document.getElementById('live-time').textContent =
+        h + ':' + String(m).padStart(2,'0') + ' ' + ap;
+    setTimeout(tick, 15000);
+})();
+</script>
 {% endblock %}

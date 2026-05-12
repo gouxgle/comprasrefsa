@@ -8,232 +8,238 @@
     <meta http-equiv="Expires" content="0">
     <title>{% block title %}Sistema de Almacenes - REFSA{% endblock %}</title>
 
-    <!-- Tabler (Bootstrap 5) -->
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/tabler/css/tabler.min.css') }}">
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fontawesome/css/all.min.css') }}">
-    <!-- Select2 -->
     <link href="{{ url_for('static', filename='vendor/select2/css/select2.min.css') }}" rel="stylesheet">
 
     <style>
+        /* ── Variables y base ─────────────────────────────────────── */
         :root {
-            --refsa-blue:       #0d47a1;
-            --refsa-blue-light: #1976d2;
-            --tblr-primary:     #0d47a1;
-            --tblr-primary-rgb: 13,71,161;
+            --blue:        #1565c0;
+            --blue-mid:    #1976d2;
+            --blue-pale:   #e8f1fc;
+            --blue-rgb:    21,101,192;
+            --nav-h:       72px;
+            --tblr-primary: #1565c0;
+            --tblr-primary-rgb: 21,101,192;
         }
 
-        /* ── Sidebar ───────────────────────────────────────────── */
-        .navbar-vertical { background: var(--refsa-blue) !important; }
-        .navbar-vertical .navbar-brand { color: #fff !important; }
-        .navbar-vertical .nav-link     { color: rgba(255,255,255,.75) !important; border-radius: .35rem; }
-        .navbar-vertical .nav-link:hover,
-        .navbar-vertical .nav-link.active { color: #fff !important; background: rgba(255,255,255,.15) !important; }
-        .navbar-vertical .nav-link-icon   { color: rgba(255,255,255,.6) !important; }
-        .navbar-vertical .nav-link.active .nav-link-icon { color: #fff !important; }
-        .navbar-vertical .nav-section-label { color: rgba(255,255,255,.4) !important; }
-        .sidebar-brand-text { font-size: 1rem; font-weight: 700; color: #fff; }
+        html { font-size: 15px; }
+        body { background: #f0f4f8; min-height: 100vh; margin: 0; }
 
-        /* ── Top navbar ────────────────────────────────────────── */
-        .navbar-expand-md.d-print-none { border-bottom: 1px solid #e6eaf0; background: #fff; }
+        /* ── Top navbar ──────────────────────────────────────────── */
+        .tnav {
+            position: sticky; top: 0; z-index: 1000;
+            background: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,.10);
+            height: var(--nav-h);
+            display: flex; align-items: center;
+            padding: 0 20px; gap: 8px;
+        }
 
-        /* ── Badges de estado ──────────────────────────────────── */
+        /* brand */
+        .tnav-brand {
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none; flex-shrink: 0; min-width: 210px;
+        }
+        .tnav-brand-title { font-size: 1rem; font-weight: 700; color: var(--blue); line-height: 1.2; }
+        .tnav-brand-sub   { font-size: .72rem; color: #7c8fa4; line-height: 1; }
+
+        /* nav links */
+        .tnav-links {
+            display: flex; align-items: stretch; gap: 2px;
+            flex: 1; justify-content: center;
+            list-style: none; margin: 0; padding: 0;
+            height: var(--nav-h);
+        }
+        .tnav-links li a {
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 3px; padding: 0 15px;
+            color: #607080; font-size: .76rem; font-weight: 600;
+            text-decoration: none; line-height: 1.2;
+            border-bottom: 3px solid transparent;
+            transition: background .15s, color .15s;
+            white-space: nowrap; text-align: center;
+        }
+        .tnav-links li a i { font-size: 1.4rem; }
+        .tnav-links li a:hover  { color: var(--blue); background: var(--blue-pale); }
+        .tnav-links li a.active {
+            color: var(--blue); background: var(--blue-pale);
+            border-bottom-color: var(--blue);
+        }
+
+        /* right area */
+        .tnav-right {
+            display: flex; align-items: center; gap: 12px;
+            flex-shrink: 0;
+        }
+        .tnav-role {
+            background: var(--blue-pale); color: var(--blue);
+            font-size: .68rem; font-weight: 700;
+            padding: 3px 12px; border-radius: 20px;
+            text-transform: uppercase; white-space: nowrap;
+        }
+        .tnav-user { display: flex; align-items: center; gap: 9px; }
+        .tnav-user-text { text-align: right; }
+        .tnav-user-name { font-size: .85rem; font-weight: 700; line-height: 1.3; color: #2c3e50; }
+        .tnav-user-sect { font-size: .69rem; color: #7c8fa4; }
+        .tnav-avatar {
+            width: 38px; height: 38px; border-radius: 50%;
+            background: var(--blue); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: .95rem; flex-shrink: 0;
+        }
+        .tnav-logout {
+            color: #b0bec5; font-size: 1.1rem;
+            text-decoration: none; transition: color .15s;
+        }
+        .tnav-logout:hover { color: #dc3545; }
+
+        /* ── Flash wrapper ────────────────────────────────────── */
+        .flash-wrap {
+            max-width: 1340px; margin: 0 auto;
+            padding: 10px 24px 0;
+        }
+
+        /* ── Page content ─────────────────────────────────────── */
+        .page-content {
+            max-width: 1340px; margin: 0 auto;
+            padding: 22px 24px 8px;
+            min-height: calc(100vh - var(--nav-h) - 48px);
+        }
+
+        /* ── Footer ───────────────────────────────────────────── */
+        .page-foot {
+            text-align: center; padding: 10px;
+            font-size: .74rem; color: #b0bec5;
+        }
+
+        /* ── Badge estados (uso global) ───────────────────────── */
         .badge-estado-30 { background: #ffc107; color: #333; }
         .badge-estado-31 { background: #17a2b8; color: #fff; }
         .badge-estado-32 { background: #198754; color: #fff; }
         .badge-estado-37 { background: #6c757d; color: #fff; }
 
-        /* ── KPI cards ─────────────────────────────────────────── */
-        .kpi-icon {
-            width: 48px; height: 48px; border-radius: .6rem;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.3rem; flex-shrink: 0;
-        }
-
-        /* ── Compatibilidad con templates existentes ───────────── */
-        .main-content { padding: 0; }
-        .refsa-watermark { display: none; }
+        /* bloque vacío para compat con templates que definen page_title */
     </style>
 
     {% block extra_css %}{% endblock %}
 </head>
-<body class="antialiased">
-<div class="wrapper">
+<body>
 
-    <!-- ── Sidebar ──────────────────────────────────────────────────── -->
-    <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
-        <div class="container-fluid">
+<!-- ── Top Navbar ──────────────────────────────────────────────── -->
+<nav class="tnav">
 
-            <button class="navbar-toggler" type="button"
-                    data-bs-toggle="collapse" data-bs-target="#sidebar-nav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+    <a class="tnav-brand" href="{{ url_for('menu_bp.menu_principal') }}">
+        <img src="{{ url_for('static', filename='Logo_REFSA.jpg') }}"
+             alt="REFSA" height="44" style="border-radius:6px;flex-shrink:0">
+        <div>
+            <div class="tnav-brand-title">Sistema de Almacenes</div>
+            <div class="tnav-brand-sub">Centro Operativo</div>
+        </div>
+    </a>
 
-            <a class="navbar-brand d-flex align-items-center gap-2"
-               href="{{ url_for('menu_bp.menu_principal') }}">
-                <img src="{{ url_for('static', filename='Logo_REFSA.jpg') }}"
-                     alt="REFSA" height="32" style="border-radius:4px">
-                <span class="sidebar-brand-text">Almacenes</span>
+    <ul class="tnav-links">
+        <li>
+            <a href="{{ url_for('menu_bp.menu_principal') }}"
+               class="{{ 'active' if request.endpoint == 'menu_bp.menu_principal' else '' }}">
+                <i class="fas fa-home"></i>Inicio
             </a>
+        </li>
+        <li>
+            <a href="{{ url_for('retiro.retiro_materiales') }}"
+               class="{{ 'active' if request.endpoint == 'retiro.retiro_materiales' else '' }}">
+                <i class="fas fa-dolly"></i>Retiro de<br>Materiales
+            </a>
+        </li>
+        {% if session.get('tipo','')[:1].upper() not in ('N','M') %}
+        <li>
+            <a href="{{ url_for('pedidos.pedido_interno') }}"
+               class="{{ 'active' if request.endpoint == 'pedidos.pedido_interno' else '' }}">
+                <i class="fas fa-file-alt"></i>Pedido<br>Interno
+            </a>
+        </li>
+        {% endif %}
+        <li>
+            <a href="{{ url_for('estado.estado_pedido') }}"
+               class="{{ 'active' if request.endpoint == 'estado.estado_pedido' else '' }}">
+                <i class="fas fa-search"></i>Estado de<br>Pedidos
+            </a>
+        </li>
+        <li>
+            <a href="{{ url_for('imprimir.imprimir') }}"
+               class="{{ 'active' if request.endpoint == 'imprimir.imprimir' else '' }}">
+                <i class="fas fa-print"></i>Imprimir<br>Vales
+            </a>
+        </li>
+        {% if session.get('tipo','')[:1].upper() in ('N','M','A','J') %}
+        <li>
+            <a href="{{ url_for('almacenes.panel') }}"
+               class="{{ 'active' if request.endpoint == 'almacenes.panel' else '' }}">
+                <i class="fas fa-warehouse"></i>Almacenes
+            </a>
+        </li>
+        {% endif %}
+    </ul>
 
-            <div class="collapse navbar-collapse" id="sidebar-nav">
-                <ul class="navbar-nav pt-lg-3">
-
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'menu_bp.menu_principal' %}active{% endif %}"
-                           href="{{ url_for('menu_bp.menu_principal') }}">
-                            <span class="nav-link-icon"><i class="fas fa-home"></i></span>
-                            <span class="nav-link-title">Inicio</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <span class="nav-section-label px-3 pt-3 pb-1"
-                              style="font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;display:block">
-                            Operaciones
-                        </span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'retiro.retiro_materiales' %}active{% endif %}"
-                           href="{{ url_for('retiro.retiro_materiales') }}">
-                            <span class="nav-link-icon"><i class="fas fa-dolly"></i></span>
-                            <span class="nav-link-title">Retiro de Materiales</span>
-                        </a>
-                    </li>
-
-                    {% if session.get('tipo','')[:1].upper() not in ('N','M') %}
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'pedidos.pedido_interno' %}active{% endif %}"
-                           href="{{ url_for('pedidos.pedido_interno') }}">
-                            <span class="nav-link-icon"><i class="fas fa-file-alt"></i></span>
-                            <span class="nav-link-title">Pedido Interno (PIM)</span>
-                        </a>
-                    </li>
+    <div class="tnav-right">
+        <span class="tnav-role">
+            {{ session.get('tipooperario') or session.get('sector_nombre','') }}
+        </span>
+        <div class="tnav-user">
+            <div class="tnav-user-text">
+                <div class="tnav-user-name">
+                    {% if session.get('usuario') %}
+                        {{ session.get('usuario','').split()[0] | title }}
+                        {% if session.get('usuario','').split() | length > 1 %}
+                            {{ session.get('usuario','').split()[1] | title }}
+                        {% endif %}
                     {% endif %}
-
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'estado.estado_pedido' %}active{% endif %}"
-                           href="{{ url_for('estado.estado_pedido') }}">
-                            <span class="nav-link-icon"><i class="fas fa-search"></i></span>
-                            <span class="nav-link-title">Estado de Pedidos</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'imprimir.imprimir' %}active{% endif %}"
-                           href="{{ url_for('imprimir.imprimir') }}">
-                            <span class="nav-link-icon"><i class="fas fa-print"></i></span>
-                            <span class="nav-link-title">Imprimir Vales</span>
-                        </a>
-                    </li>
-
-                    {% if session.get('tipo','')[:1].upper() in ('N','M','A','J') %}
-                    <li class="nav-item">
-                        <span class="nav-section-label px-3 pt-3 pb-1"
-                              style="font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;display:block">
-                            Gestión Almacenes
-                        </span>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'almacenes.panel' %}active{% endif %}"
-                           href="{{ url_for('almacenes.panel') }}">
-                            <span class="nav-link-icon"><i class="fas fa-warehouse"></i></span>
-                            <span class="nav-link-title">Panel Almacenes</span>
-                        </a>
-                    </li>
-                    {% endif %}
-
-                </ul>
-
-                <!-- Usuario en la parte baja del sidebar -->
-                <div class="mt-auto pt-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
-                    <div class="d-flex align-items-center gap-2 px-2 py-2">
-                        <span class="avatar avatar-sm"
-                              style="background:rgba(255,255,255,.2);color:#fff;font-weight:700;font-size:.8rem">
-                            {{ (session.get('usuario') or '?')[0] }}
-                        </span>
-                        <div class="flex-fill" style="min-width:0">
-                            <div class="text-white small fw-semibold text-truncate">
-                                {{ session.get('usuario','') }}
-                            </div>
-                            <div style="color:rgba(255,255,255,.5);font-size:.7rem">
-                                {{ session.get('sector_nombre','') | upper }}
-                            </div>
-                        </div>
-                        <a href="{{ url_for('login.logout') }}"
-                           class="text-white-50" title="Cerrar sesión"
-                           style="font-size:.85rem">
-                            <i class="fas fa-sign-out-alt"></i>
-                        </a>
-                    </div>
                 </div>
+                <div class="tnav-user-sect">{{ session.get('sector_nombre','') | upper }}</div>
             </div>
+            <div class="tnav-avatar">{{ (session.get('usuario') or '?')[0] | upper }}</div>
+            <a href="{{ url_for('login.logout') }}" class="tnav-logout" title="Cerrar sesión">
+                <i class="fas fa-sign-out-alt"></i>
+            </a>
         </div>
-    </aside>
+    </div>
+</nav>
 
-    <!-- ── Page wrapper ─────────────────────────────────────────────── -->
-    <div class="page-wrapper">
-
-        <!-- Top bar -->
-        <header class="navbar navbar-expand-md d-print-none">
-            <div class="container-fluid">
-                <div class="d-flex align-items-center gap-2">
-                    <span class="fw-semibold text-secondary" style="font-size:.85rem">
-                        {% block page_title %}{% endblock %}
-                    </span>
-                </div>
-                <div class="navbar-nav flex-row order-md-last gap-2">
-                    <span class="badge"
-                          style="background:var(--refsa-blue);font-size:.72rem;padding:.35rem .7rem">
-                        {{ session.get('tipooperario') or session.get('sector_nombre','') | upper }}
-                    </span>
-                    <span class="text-secondary small d-none d-md-inline align-self-center">
-                        {{ session.get('usuario','') }}
-                    </span>
-                </div>
+<!-- ── Flash messages ─────────────────────────────────────────── -->
+<div class="flash-wrap">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show mb-2 mt-2">
+                <i class="fas fa-{% if category == 'success' %}check-circle{% elif category in ('danger','error') %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
-        </header>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+</div>
 
-        <!-- Flash messages + Content -->
-        <div class="page-body">
-            <div class="container-xl py-3">
+<!-- ── Content ────────────────────────────────────────────────── -->
+<div class="page-content">
+    {% block page_title %}{% endblock %}
+    {% block content %}{% endblock %}
+</div>
 
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% for category, message in messages %}
-                        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show">
-                            <i class="fas fa-{% if category == 'success' %}check-circle{% elif category in ('danger','error') %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                        {% endfor %}
-                    {% endif %}
-                {% endwith %}
+<footer class="page-foot d-print-none">
+    © 2026 REFSA — Sistema de Almacenes v2.0
+</footer>
 
-                {% block content %}{% endblock %}
-
-            </div>
-        </div>
-
-        <!-- Footer -->
-        <footer class="footer footer-transparent d-print-none py-2">
-            <div class="container-xl text-center text-secondary" style="font-size:.78rem">
-                © 2026 REFSA — Sistema de Almacenes v2.0
-            </div>
-        </footer>
-
-    </div><!-- /page-wrapper -->
-</div><!-- /wrapper -->
-
-<!-- Scripts -->
 <script src="{{ url_for('static', filename='vendor/jquery/jquery-3.7.1.min.js') }}"></script>
 <script src="{{ url_for('static', filename='vendor/tabler/js/tabler.min.js') }}"></script>
 <script src="{{ url_for('static', filename='vendor/select2/js/select2.min.js') }}"></script>
 <script>
     setTimeout(function() { $('.alert').fadeOut('slow'); }, 5000);
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.forEach(function(el) { new bootstrap.Tooltip(el); });
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el) {
+        new bootstrap.Tooltip(el);
+    });
 </script>
 {% block extra_js %}{% endblock %}
 </body>
