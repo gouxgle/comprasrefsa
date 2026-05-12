@@ -159,12 +159,21 @@ def retiro_materiales():
     tiene_motivo = id_sector in SECTORES_CON_MOTIVO
     tiene_cargo = id_sector == SECTOR_HIGIENE
 
-    # Materiales del sector — stock de la vista (= stock por sector, coincide con FoxPro)
+    # Stock disponible = stock_sector - cantidades en vales pendientes (estado 30/31)
+    # Replica exactamente el cálculo de FoxPro
     cursor_almacenes.execute("""
-        SELECT cd1, cd2, material, stock
-        FROM almacenes.vmaterialesdesectores
-        WHERE sector = %s
-        ORDER BY cd1, cd2
+        SELECT v.cd1, v.cd2, v.material,
+               GREATEST(0, v.stock - COALESCE((
+                   SELECT SUM(d.cantidadpedida)
+                   FROM almacenes.detallesretiromateriales d
+                   JOIN almacenes.retiromateriales r ON r.idretiro = d.idretiro
+                   WHERE d.cd1 = v.cd1 AND d.cd2 = v.cd2
+                     AND r.estado IN (30, 31)
+                     AND r.sector = v.sector
+               ), 0)) AS stock_disponible
+        FROM almacenes.vmaterialesdesectores v
+        WHERE v.sector = %s
+        ORDER BY v.cd1, v.cd2
     """, (id_sector,))
     materiales = cursor_almacenes.fetchall()
 
