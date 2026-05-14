@@ -65,7 +65,7 @@ def retiros_sector(id_sector):
         FROM almacenes.retiromateriales r
         LEFT JOIN comun.operarios op_pide   ON op_pide.IdOperario   = r.quienpidio
         LEFT JOIN comun.operarios op_retira ON op_retira.IdOperario  = r.quienretiro
-        LEFT JOIN comun.personal  p         ON p.idpersonal          = r.quienretiro
+        LEFT JOIN comun.personal  p         ON p.idlegajo             = r.quienretiro
         WHERE r.sector = %s
         ORDER BY r.idretiro DESC
         LIMIT 300
