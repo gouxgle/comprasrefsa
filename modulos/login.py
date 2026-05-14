@@ -81,7 +81,15 @@ def login():
                 for row in sectores
             ]
 
-            if len(sectores) == 1:
+            if len(sectores) == 0:
+                session.clear()
+                flash(
+                    f'El usuario {nombre} no tiene sectores asignados. '
+                    'Contacte al administrador del sistema.',
+                    'danger'
+                )
+                return render_template('login.html')
+            elif len(sectores) == 1:
                 session['id_sector']     = sectores[0][0]
                 session['tipooperario']  = (sectores[0][1] or '').strip()
                 session['sector_nombre'] = (sectores[0][2] or '').strip()
