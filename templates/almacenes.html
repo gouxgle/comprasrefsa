@@ -503,7 +503,16 @@ function accionAutorizarItem() {
 
 function accionImprimir() {
     if (!idRetiroActivo) { toast('Seleccione un vale para imprimir', false); return; }
-    window.open('/imprimir_retiro/' + idRetiroActivo, '_blank');
+    var w = 920, h = 720;
+    var left = Math.round((screen.width  - w) / 2);
+    var top  = Math.round((screen.height - h) / 2);
+    window.open(
+        '/imprimir_popup/retiro/' + idRetiroActivo,
+        'print_vale',
+        'width=' + w + ',height=' + h +
+        ',left=' + left + ',top=' + top +
+        ',menubar=0,toolbar=0,location=0,status=0,resizable=1'
+    );
 }
 </script>
 {% endblock %}

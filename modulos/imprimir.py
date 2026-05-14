@@ -521,3 +521,53 @@ def imprimir_retiro(id_retiro):
     response.headers['Content-Type'] = 'application/pdf'
     response.headers['Content-Disposition'] = f'inline; filename=Retiro-{nro}.pdf'
     return response
+
+
+@imprimir_bp.route('/imprimir_popup/retiro/<int:id_retiro>')
+@login_requerido
+def imprimir_popup_retiro(id_retiro):
+    """
+    Página HTML que carga el PDF, lanza el diálogo de impresión
+    automáticamente y cierra la ventana al terminar.
+    El usuario no necesita presionar nada salvo confirmar en el diálogo.
+    """
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Retiro {id_retiro}</title>
+<style>
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  html, body {{ width:100%; height:100%; overflow:hidden; background:#525659; }}
+  embed {{ width:100%; height:100%; display:block; }}
+  #msg {{
+    position:fixed; top:0; left:0; right:0;
+    background:#1565c0; color:#fff; text-align:center;
+    padding:8px; font:13px sans-serif; z-index:99;
+    display:none;
+  }}
+</style>
+</head>
+<body>
+<div id="msg">Preparando impresión…</div>
+<embed id="pdf" src="/imprimir_retiro/{id_retiro}" type="application/pdf">
+<script>
+var done = false;
+function doPrint() {{
+    if (done) return;
+    done = true;
+    document.getElementById('msg').style.display = 'block';
+    window.focus();
+    window.print();
+    window.onafterprint = function() {{ window.close(); }};
+}}
+// Esperar a que el PDF cargue dentro del embed antes de imprimir
+window.addEventListener('load', function() {{ setTimeout(doPrint, 1400); }});
+// Seguro extra: si load tardó más de lo esperado
+setTimeout(function() {{ if (!done) doPrint(); }}, 3000);
+</script>
+</body>
+</html>"""
+    response = make_response(html)
+    response.headers['Content-Type'] = 'text/html; charset=utf-8'
+    return response
