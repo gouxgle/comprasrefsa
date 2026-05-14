@@ -29,12 +29,11 @@ def panel():
     global conn_almacenes, cursor_almacenes
     conn_almacenes, cursor_almacenes = check_connection(conn_almacenes, cursor_almacenes, 'almacenes')
 
-    # Sectores que tienen vales pendientes → para el combo
+    # Todos los sectores que tienen cualquier vale → para el combo
     cursor_almacenes.execute("""
         SELECT DISTINCT j.idjefatura, j.jefatura
         FROM almacenes.retiromateriales r
         JOIN comun.jefaturas j ON j.idjefatura = r.sector
-        WHERE r.estado IN (30, 31)
         ORDER BY j.jefatura
     """)
     sectores = [{'id': row[0], 'nombre': row[1] or ''}
@@ -67,8 +66,9 @@ def retiros_sector(id_sector):
         LEFT JOIN comun.operarios op_pide   ON op_pide.IdOperario   = r.quienpidio
         LEFT JOIN comun.operarios op_retira ON op_retira.IdOperario  = r.quienretiro
         LEFT JOIN comun.personal  p         ON p.idpersonal          = r.quienretiro
-        WHERE r.sector = %s AND r.estado IN (30, 31)
+        WHERE r.sector = %s
         ORDER BY r.idretiro DESC
+        LIMIT 300
     """, (id_sector,))
     cols = [x[0] for x in cursor_almacenes.description]
     return jsonify([{c: _s(v) for c, v in zip(cols, r)}

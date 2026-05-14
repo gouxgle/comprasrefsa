@@ -197,19 +197,19 @@
 
         <!-- Retiro -->
         <div class="panel-seccion">Retiro</div>
-        <button class="btn-fox primary" onclick="accionRetiraTodo()">
+        <button id="btnRetiraTodo" class="btn-fox primary" onclick="accionRetiraTodo()">
             <i class="fas fa-truck me-1"></i>RETIRA TODO
         </button>
-        <button class="btn-fox warn" onclick="accionRetiraItem()">
+        <button id="btnRetiraItem" class="btn-fox warn" onclick="accionRetiraItem()">
             <i class="fas fa-hand-pointer me-1"></i>RETIRA ÍTEM
         </button>
 
         <!-- Autorización -->
         <div class="panel-seccion">Autorización</div>
-        <button class="btn-fox success" onclick="accionAutorizarTodo()">
+        <button id="btnAutorizaTodo" class="btn-fox success" onclick="accionAutorizarTodo()">
             <i class="fas fa-check-double me-1"></i>AUTORIZAR TODO
         </button>
-        <button class="btn-fox" onclick="accionAutorizarItem()">
+        <button id="btnAutorizaItem" class="btn-fox" onclick="accionAutorizarItem()">
             <i class="fas fa-check me-1"></i>AUTORIZAR ÍTEM
         </button>
 
@@ -300,14 +300,18 @@ function cargarVales(data) {
 
     if (!data.length) {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">'
-                        + 'No hay vales pendientes para este sector</td></tr>';
+                        + 'No hay vales para este sector</td></tr>';
         return;
     }
 
     data.forEach(function(r) {
-        const badgeEst = r.estado == 30
-            ? '<span class="badge bg-warning text-dark">Pendiente</span>'
-            : '<span class="badge bg-info text-dark">Parcial</span>';
+        var est = parseInt(r.estado);
+        var badgeEst =
+            est === 30 ? '<span class="badge bg-warning text-dark">Pendiente</span>' :
+            est === 31 ? '<span class="badge bg-info text-dark">Parcial</span>'      :
+            est === 32 ? '<span class="badge bg-success">Entregado</span>'           :
+            est === 37 ? '<span class="badge bg-secondary">Baja</span>'              :
+                         '<span class="badge bg-light text-dark border">' + est + '</span>';
 
         const tr = document.createElement('tr');
         tr.innerHTML =
@@ -318,6 +322,7 @@ function cargarVales(data) {
             '<td class="text-truncate" style="max-width:140px">' + (r.quien_retira || '') + '</td>' +
             '<td class="text-center">' + badgeEst + '</td>';
         tr.dataset.id     = r.idretiro;
+        tr.dataset.estado = est;
         tr.dataset.retira = r.quien_retira || '';
         tr.addEventListener('click', function() { seleccionarVale(this); });
         tbody.appendChild(tr);
@@ -333,6 +338,15 @@ function seleccionarVale(tr) {
     retiraActivo   = tr.dataset.retira;
     rengActivo     = null;
     itemActivo     = null;
+
+    var estadoVale = parseInt(tr.dataset.estado || 30);
+    var cerrado    = estadoVale === 32 || estadoVale === 37;
+
+    // Deshabilitar botones de proceso para vales ya entregados o dados de baja
+    ['btnRetiraTodo','btnRetiraItem','btnAutorizaTodo','btnAutorizaItem'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) { el.disabled = cerrado; el.style.opacity = cerrado ? '.4' : ''; }
+    });
 
     document.getElementById('lblNroRetiro').textContent = '— Vale #' + idRetiroActivo;
     document.getElementById('panelRetira').textContent  = retiraActivo || '—';
