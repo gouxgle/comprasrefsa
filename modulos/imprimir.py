@@ -526,48 +526,221 @@ def imprimir_retiro(id_retiro):
 @imprimir_bp.route('/imprimir_popup/retiro/<int:id_retiro>')
 @login_requerido
 def imprimir_popup_retiro(id_retiro):
-    """
-    Página HTML que carga el PDF, lanza el diálogo de impresión
-    automáticamente y cierra la ventana al terminar.
-    El usuario no necesita presionar nada salvo confirmar en el diálogo.
-    """
+    """Vale de retiro como HTML con CSS de impresión. window.print() funciona
+    100% sobre HTML a diferencia del embed PDF."""
+    global conn, cursor, conn_almacenes, cursor_almacenes
+    conn, cursor = check_connection(conn, cursor, 'comun')
+    conn_almacenes, cursor_almacenes = check_connection(conn_almacenes, cursor_almacenes, 'almacenes')
+
+    cursor_almacenes.execute("""
+        SELECT r.idretiro, r.fechapedido,
+               r.ubicacion,
+               j1.jefatura AS sector_nombre,
+               j2.jefatura AS destino_nombre,
+               op_pide.DescOperario AS realizada_por
+        FROM almacenes.retiromateriales r
+        LEFT JOIN comun.jefaturas j1     ON j1.idjefatura  = r.sector
+        LEFT JOIN comun.jefaturas j2     ON j2.idjefatura  = r.destino
+        LEFT JOIN comun.operarios op_pide ON op_pide.IdOperario = r.quienpidio
+        WHERE r.idretiro = %s
+    """, (id_retiro,))
+    cab = cursor_almacenes.fetchone()
+    if not cab:
+        return "Vale no encontrado", 404
+
+    id_ret, fecha_ret, ubicacion, sector_nombre, destino_nombre, realizada_por = cab
+
+    cursor_almacenes.execute("""
+        SELECT d.renglon, d.cd1, d.cd2, d.cantidadpedida,
+               COALESCE(m.material, CONCAT(d.cd1,' ',d.cd2)) AS material
+        FROM almacenes.detallesretiromateriales d
+        LEFT JOIN almacenes.materiales m ON m.cd1 = d.cd1 AND m.cd2 = d.cd2
+        WHERE d.idretiro = %s
+        ORDER BY d.renglon
+    """, (id_retiro,))
+    items = cursor_almacenes.fetchall()
+
+    fecha_str   = fecha_ret.strftime('%d/%m/%Y') if fecha_ret else ''
+    sector_str  = (sector_nombre  or '').upper()
+    destino_str = (destino_nombre or '').upper()
+    ubic_str    = (ubicacion      or '').upper()
+    quien_str   = (realizada_por  or '').upper()
+
+    filas_html = ''
+    for renglon, cd1, cd2, cant_ped, material in items:
+        cant_fmt = f'{float(cant_ped):.2f}'.replace('.', ',')
+        filas_html += f'''
+        <tr>
+          <td class="tc">{renglon}</td>
+          <td class="tc">{cd1} {cd2}</td>
+          <td class="tl">{material}</td>
+          <td class="tr">{cant_fmt}</td>
+        </tr>'''
+
+    # Rellenar hasta 25 filas para mantener el layout de página
+    filled = len(items)
+    for _ in range(max(0, 25 - filled)):
+        filas_html += '<tr><td>&nbsp;</td><td></td><td></td><td></td></tr>'
+
     html = f"""<!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Retiro {id_retiro}</title>
+<title>Retiro {id_ret}</title>
 <style>
   * {{ margin:0; padding:0; box-sizing:border-box; }}
-  html, body {{ width:100%; height:100%; overflow:hidden; background:#525659; }}
-  embed {{ width:100%; height:100%; display:block; }}
-  #msg {{
+
+  body {{
+    font-family: Courier, monospace;
+    font-size: 9pt;
+    background: #e0e0e0;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 16px;
+  }}
+
+  /* hoja A4 en pantalla */
+  .page {{
+    background: #fff;
+    width: 210mm; min-height: 297mm;
+    padding: 14mm 14mm 12mm;
+    box-shadow: 0 2px 12px rgba(0,0,0,.25);
+    position: relative;
+  }}
+
+  /* ── cabecera ── */
+  .hdr-top {{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:2mm; }}
+  .hdr-fecha {{ font-size:8pt; text-align:right; }}
+  .refsa-title {{ font-size:11pt; font-weight:bold; margin:1mm 0; }}
+  .info-row {{ display:flex; justify-content:space-between; margin-bottom:1mm; font-size:8pt; }}
+  hr {{ border:none; border-top:1px solid #000; margin:2mm 0; }}
+
+  /* ── tabla ── */
+  table {{ width:100%; border-collapse:collapse; margin-top:2mm; }}
+  thead tr th {{
+    border:1px solid #000; padding:2px 4px;
+    font-size:8pt; font-weight:bold; text-align:center;
+    background:#f0f0f0;
+  }}
+  tbody tr td {{
+    border-left:1px solid #000; border-right:1px solid #000;
+    border-bottom:1px solid #ddd;
+    padding:2px 4px; font-size:8pt; height:7mm;
+  }}
+  tbody tr:last-child td {{ border-bottom:1px solid #000; }}
+  .tc {{ text-align:center; }}
+  .tl {{ text-align:left; }}
+  .tr {{ text-align:right; }}
+
+  /* ── firmas ── */
+  .firmas {{ display:flex; border:1px solid #000; margin-top:4mm; }}
+  .firma-col {{
+    flex:1; padding:3mm 4mm;
+    border-right:1px solid #000;
+    font-size:8pt;
+  }}
+  .firma-col:last-child {{ border-right:none; }}
+  .firma-titulo {{ font-weight:bold; text-align:center; margin-bottom:6mm; }}
+  .firma-linea {{ border-top:1px solid #000; margin-top:1mm; font-size:7pt; color:#555; }}
+
+  /* ── barra de estado (solo pantalla) ── */
+  #status-bar {{
     position:fixed; top:0; left:0; right:0;
-    background:#1565c0; color:#fff; text-align:center;
-    padding:8px; font:13px sans-serif; z-index:99;
-    display:none;
+    background:#1565c0; color:#fff;
+    text-align:center; padding:8px;
+    font:bold 13px sans-serif; z-index:999;
+    font-family: sans-serif;
+  }}
+
+  /* ── print ── */
+  @media print {{
+    body {{ background:none; padding:0; }}
+    #status-bar {{ display:none !important; }}
+    .page {{
+      box-shadow:none; width:100%; min-height:auto;
+      padding:8mm 10mm;
+    }}
+    thead tr th {{ background:#f0f0f0 !important; -webkit-print-color-adjust:exact; }}
   }}
 </style>
 </head>
 <body>
-<div id="msg">Preparando impresión…</div>
-<embed id="pdf" src="/imprimir_retiro/{id_retiro}" type="application/pdf">
+
+<div id="status-bar">Enviando a impresora…</div>
+
+<div class="page">
+
+  <!-- cabecera -->
+  <div class="hdr-top">
+    <img src="/static/Logo_REFSA.jpg" height="32" style="border-radius:3px">
+    <div class="hdr-fecha">Fecha: {fecha_str}</div>
+  </div>
+
+  <div class="refsa-title">REFSA</div>
+
+  <div class="info-row">
+    <span>N° Orden de Retiro de Materiales: &nbsp;<strong>{id_ret}</strong></span>
+    <span>Realizada por: {quien_str}</span>
+  </div>
+  <div class="info-row">
+    <span>Destino: {destino_str}</span>
+    <span>Ubicacion: {ubic_str}</span>
+  </div>
+
+  <hr>
+
+  <div class="info-row">
+    <span>Sector: {sector_str}</span>
+    <span>Operario:</span>
+  </div>
+
+  <!-- tabla -->
+  <table>
+    <thead>
+      <tr>
+        <th style="width:5%">#</th>
+        <th style="width:12%">Codigo</th>
+        <th style="width:71%">Material</th>
+        <th style="width:12%">Cantidad</th>
+      </tr>
+    </thead>
+    <tbody>
+      {filas_html}
+    </tbody>
+  </table>
+
+  <!-- firmas -->
+  <div class="firmas">
+    <div class="firma-col">
+      <div class="firma-titulo">ALMACENES</div>
+      <div class="firma-linea">Firma: ____________________</div>
+      <div class="firma-linea">Aclaración: _______________</div>
+    </div>
+    <div class="firma-col">
+      <div class="firma-titulo">JEFE</div>
+      <div class="firma-linea">Firma: ____________________</div>
+      <div class="firma-linea">Aclaración: _______________</div>
+    </div>
+    <div class="firma-col">
+      <div class="firma-titulo">RECIBI CONFORME</div>
+      <div class="firma-linea">Firma: ____________________</div>
+      <div class="firma-linea">Aclaración: _______________</div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
 <script>
-var done = false;
-function doPrint() {{
-    if (done) return;
-    done = true;
-    document.getElementById('msg').style.display = 'block';
-    window.focus();
+window.addEventListener('load', function() {{
+  window.focus();
+  setTimeout(function() {{
     window.print();
     window.onafterprint = function() {{ window.close(); }};
-}}
-// Esperar a que el PDF cargue dentro del embed antes de imprimir
-window.addEventListener('load', function() {{ setTimeout(doPrint, 1400); }});
-// Seguro extra: si load tardó más de lo esperado
-setTimeout(function() {{ if (!done) doPrint(); }}, 3000);
+  }}, 400);
+}});
 </script>
 </body>
 </html>"""
+
     response = make_response(html)
     response.headers['Content-Type'] = 'text/html; charset=utf-8'
     return response
