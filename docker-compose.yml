@@ -7,6 +7,7 @@ services:
     env_file: .env
     volumes:
       - .:/app
+    command: gunicorn --bind 0.0.0.0:8080 --workers 2 --timeout 60 app:app
 
 #  celltrack-backend: # 💡 Nuevo backend para login/autenticación
 #    build:
