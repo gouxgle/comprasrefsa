@@ -43,9 +43,9 @@
 /* ── Module cards ─────────────────────────────────────────── */
 .mod-card {
     background: #fff; border-radius: 16px;
-    padding: 20px 20px;
+    padding: 13px 14px;
     box-shadow: 0 2px 12px rgba(0,0,0,.07);
-    display: flex; align-items: center; gap: 16px;
+    display: flex; align-items: center; gap: 11px;
     text-decoration: none; color: #2c3e50;
     transition: all .18s;
     border: 2px solid transparent;
@@ -58,12 +58,12 @@
     color: #1565c0;
 }
 .mod-icon {
-    width: 58px; height: 58px; border-radius: 50%;
+    width: 44px; height: 44px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.45rem; color: #fff; flex-shrink: 0;
+    font-size: 1.1rem; color: #fff; flex-shrink: 0;
 }
-.mod-name  { font-size: 1rem; font-weight: 700; line-height: 1.2; }
-.mod-desc  { font-size: .78rem; color: #7c8fa4; margin-top: 3px; }
+.mod-name  { font-size: .9rem; font-weight: 700; line-height: 1.2; }
+.mod-desc  { font-size: .72rem; color: #7c8fa4; margin-top: 2px; }
 .mod-arrow { margin-left: auto; color: #cfd8dc; font-size: .9rem; transition: color .15s; }
 .mod-card:hover .mod-arrow { color: #1565c0; }
 
@@ -135,7 +135,7 @@
 <div class="sec-label"><i class="fas fa-th-large"></i>Módulos principales</div>
 <div class="row g-3 mb-4">
 
-    <div class="col-12 col-sm-6 col-lg-4">
+    <div class="col-12 col-sm-6 col-lg">
         <a href="{{ url_for('retiro.retiro_materiales') }}" class="mod-card">
             <div class="mod-icon" style="background:#1565c0"><i class="fas fa-dolly"></i></div>
             <div>
@@ -147,7 +147,7 @@
     </div>
 
     {% if session.get('tipo','')[:1].upper() not in ('N','M') %}
-    <div class="col-12 col-sm-6 col-lg-4">
+    <div class="col-12 col-sm-6 col-lg">
         <a href="{{ url_for('pedidos.pedido_interno') }}" class="mod-card">
             <div class="mod-icon" style="background:#7b1fa2"><i class="fas fa-file-alt"></i></div>
             <div>
@@ -159,7 +159,7 @@
     </div>
     {% endif %}
 
-    <div class="col-12 col-sm-6 col-lg-4">
+    <div class="col-12 col-sm-6 col-lg">
         <a href="{{ url_for('estado.estado_pedido') }}" class="mod-card">
             <div class="mod-icon" style="background:#00897b"><i class="fas fa-search"></i></div>
             <div>
@@ -170,7 +170,7 @@
         </a>
     </div>
 
-    <div class="col-12 col-sm-6 col-lg-4">
+    <div class="col-12 col-sm-6 col-lg">
         <a href="{{ url_for('imprimir.imprimir') }}" class="mod-card">
             <div class="mod-icon" style="background:#e65100"><i class="fas fa-print"></i></div>
             <div>
@@ -182,7 +182,7 @@
     </div>
 
     {% if session.get('tipo','')[:1].upper() in ('N','M','A','J') %}
-    <div class="col-12 col-sm-6 col-lg-4">
+    <div class="col-12 col-sm-6 col-lg">
         <a href="{{ url_for('almacenes.panel') }}" class="mod-card">
             <div class="mod-icon" style="background:#2e7d32"><i class="fas fa-warehouse"></i></div>
             <div>
