@@ -1,27 +1,32 @@
 # conexiones.py
 import os
 import mysql.connector
-from mysql.connector import Error, OperationalError
+from mysql.connector import Error
 
-# Configuración común
 DB_CONFIG = {
-    "host":     os.environ["MYSQL_HOST"],
-    "user":     os.environ["MYSQL_USER"],
-    "password": os.environ["MYSQL_PASSWORD"],
+    "host":            os.environ["MYSQL_HOST"],
+    "user":            os.environ["MYSQL_USER"],
+    "password":        os.environ["MYSQL_PASSWORD"],
+    "connect_timeout": 5,   # no cuelga si MySQL no responde
 }
 
 def get_connection(db_name):
-    """Crea una conexión nueva con la base especificada."""
     conn = mysql.connector.connect(database=db_name, **DB_CONFIG)
     cursor = conn.cursor(buffered=True)
     return conn, cursor
 
 def check_connection(conn, cursor, db_name):
-    """Verifica si la conexión está viva. Si no, la restablece."""
+    """Verifica con ping. Si la conexión está muerta, cierra la vieja y abre nueva."""
     try:
-        cursor.execute("SELECT 1")
-    except (mysql.connector.Error, OperationalError):
-        print(f"🔄 Reconectando a base '{db_name}'...")
+        conn.ping(reconnect=False, attempts=1, delay=0)
+        # ping OK pero cursor puede quedar inválido tras reconexión previa
+        cursor = conn.cursor(buffered=True)
+    except Exception:
+        print(f"Reconectando a '{db_name}'...")
+        try:
+            conn.close()
+        except Exception:
+            pass
         conn, cursor = get_connection(db_name)
     return conn, cursor
 
