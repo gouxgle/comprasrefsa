@@ -4,6 +4,23 @@
 
 {% block extra_css %}
 <style>
+/* watermark */
+.page-watermark {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.page-watermark img {
+    width: min(420px, 55vw);
+    opacity: .045;
+    user-select: none;
+}
+
+/* typeahead */
 .typeahead-wrap { position: relative; }
 .typeahead-drop {
     position: absolute;
@@ -34,11 +51,63 @@
     color: #6c757d;
     text-align: center;
 }
+
+/* buscador de material */
+.material-search-box {
+    background: #f0f6ff;
+    border: 2px solid #c5dcff;
+    border-radius: 12px;
+    padding: 16px 18px;
+}
+.material-search-box .search-title {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #1565c0;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.select2-container--bootstrap-5 .select2-selection {
+    border: 1.5px solid #90b4e8 !important;
+    border-radius: 8px !important;
+    min-height: 44px !important;
+    font-size: .95rem !important;
+    background: #fff !important;
+}
+.select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered {
+    line-height: 42px !important;
+    padding-left: 12px !important;
+    color: #2c3e50 !important;
+}
+.select2-container--bootstrap-5 .select2-search__field {
+    font-size: .9rem !important;
+}
+.stock-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: .85rem;
+    font-weight: 600;
+    margin-top: 8px;
+}
+.stock-ok   { background:#d1fae5; color:#166534; }
+.stock-warn { background:#fef9c3; color:#854d0e; }
+.stock-none { background:#fee2e2; color:#991b1b; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row mt-3">
+<!-- marca de agua REFSA -->
+<div class="page-watermark">
+    <img src="{{ url_for('static', filename='Logo_REFSA.jpg') }}" alt="">
+</div>
+
+<div class="row mt-3" style="position:relative;z-index:1;">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
@@ -58,7 +127,7 @@
     </div>
 </div>
 
-<div class="row">
+<div class="row" style="position:relative;z-index:1;">
     <!-- Columna principal -->
     <div class="col-lg-8">
         <!-- Selector de material -->
@@ -69,34 +138,35 @@
             <div class="card-body">
                 <form method="POST" id="formAgregar">
                     <input type="hidden" name="accion" value="agregar">
+
+                    <!-- buscador destacado -->
+                    <div class="material-search-box mb-3">
+                        <div class="search-title">
+                            <i class="fas fa-search"></i>Buscar material por código o descripción
+                        </div>
+                        <select name="material" id="material" class="form-select" required>
+                            <option value="">Escriba el código o nombre del material...</option>
+                            {% for m in materiales %}
+                            <option value="{{ m[0] }}|{{ m[1] }}"
+                                    data-stock="{{ m[3] if m[3] else 0 }}">
+                                {{ m[0] }}-{{ m[1] }} · {{ m[2] }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div id="stockInfo"></div>
+                    </div>
+
                     <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label fw-semibold">
-                                <i class="fas fa-box me-1"></i>Material *
-                            </label>
-                            <select name="material" id="material" class="form-select" required>
-                                <option value="">-- Busque por código o descripción --</option>
-                                {% for m in materiales %}
-                                <option value="{{ m[0] }}|{{ m[1] }}"
-                                        data-stock="{{ m[3] if m[3] else 0 }}">
-                                    {{ m[0] }}-{{ m[1] }} | {{ m[2] }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <div id="stockInfo"></div>
-                        </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">
                                 <i class="fas fa-calculator me-1"></i>Cantidad *
                             </label>
                             <input type="number" name="cantidad" id="cantidad"
-                                   class="form-control" placeholder="0.00"
-                                   min="0.01" step="0.01" required>
+                                   class="form-control form-control-lg" placeholder="0"
+                                   min="1" step="1" required>
                         </div>
                         <div class="col-md-6 d-flex align-items-end">
-                            <button type="submit" class="btn btn-primary w-100">
+                            <button type="submit" class="btn btn-primary btn-lg w-100">
                                 <i class="fas fa-plus me-1"></i>Agregar
                             </button>
                         </div>
@@ -317,20 +387,19 @@ $(document).ready(function() {
     });
     $('#material').on('change', function() {
         var stock = $(this).find(':selected').data('stock');
-        if ($(this).val() && stock !== undefined) {
-            var ok   = stock > 0;
-            var bg   = ok ? 'bg-success' : 'bg-danger';
-            var icon = ok ? 'check-circle' : 'times-circle';
-            $('#stockInfo').html(
-                '<span class="badge ' + bg + ' px-3 py-2 mt-2" style="font-size:.85rem">' +
-                '<i class="fas fa-' + icon + ' me-2"></i>Stock actual: ' + stock +
-                '</span>'
-            );
-            $('#cantidad').focus();
-        } else {
-            $('#stockInfo').html('');
-        }
         $('#cantidad').val('');
+        if (!$(this).val()) { $('#stockInfo').html(''); return; }
+        var cls, icon, txt;
+        if (stock > 0) {
+            cls = 'stock-ok'; icon = 'check-circle'; txt = 'Stock disponible: ' + stock + ' unidades';
+        } else {
+            cls = 'stock-none'; icon = 'exclamation-circle'; txt = 'Sin stock disponible';
+        }
+        $('#stockInfo').html(
+            '<div class="stock-badge ' + cls + '">' +
+            '<i class="fas fa-' + icon + '"></i>' + txt + '</div>'
+        );
+        $('#cantidad').focus();
     });
 });
 
