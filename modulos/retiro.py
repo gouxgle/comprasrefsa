@@ -43,7 +43,7 @@ def retiro_materiales():
 
             cd1, cd2 = material.split('|')
             cursor_almacenes.execute(
-                "SELECT material, stock FROM almacenes.materiales WHERE cd1=%s AND cd2=%s",
+                "SELECT material FROM almacenes.materiales WHERE cd1=%s AND cd2=%s",
                 (cd1, cd2)
             )
             mat = cursor_almacenes.fetchone()
@@ -51,8 +51,13 @@ def retiro_materiales():
                 flash('Material no encontrado.', 'danger')
                 return redirect(url_for('retiro.retiro_materiales'))
 
+            # stock_disponible viene del hidden field (mismo valor que el badge del buscador)
+            try:
+                stock_disp = float(request.form.get('stock_disp', 0))
+            except ValueError:
+                stock_disp = 0
+
             lista = session.get('retiro_items', [])
-            # Si ya existe el mismo material, acumular cantidad
             existente = next((i for i in lista if i['cd1'] == cd1 and i['cd2'] == cd2), None)
             if existente:
                 existente['cantidad'] = round(float(existente['cantidad']) + cantidad, 2)
@@ -63,7 +68,7 @@ def retiro_materiales():
                     'cd2': cd2,
                     'descripcion': mat[0],
                     'cantidad': cantidad,
-                    'stock': float(mat[1]) if mat[1] else 0
+                    'stock': stock_disp
                 })
                 flash('Material agregado.', 'success')
             session['retiro_items'] = lista

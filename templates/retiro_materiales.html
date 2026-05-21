@@ -148,6 +148,7 @@
             <div class="card-body">
                 <form method="POST" id="formAgregar">
                     <input type="hidden" name="accion" value="agregar">
+                    <input type="hidden" name="stock_disp" id="hdnStockDisp" value="0">
 
                     <!-- buscador destacado -->
                     <div class="material-search-box mb-3">
@@ -396,9 +397,10 @@ $(document).ready(function() {
         width: '100%'
     });
     $('#material').on('change', function() {
-        var stock = $(this).find(':selected').data('stock');
+        var stock = parseFloat($(this).find(':selected').data('stock') || 0);
         $('#cantidad').val('');
-        if (!$(this).val()) { $('#stockInfo').html(''); return; }
+        $('#hdnStockDisp').val(stock);
+        if (!$(this).val()) { $('#stockInfo').html(''); $('#hdnStockDisp').val(0); return; }
         var cls, icon, txt;
         if (stock > 0) {
             cls = 'stock-ok'; icon = 'check-circle'; txt = 'Stock disponible: ' + stock + ' unidades';
@@ -409,7 +411,7 @@ $(document).ready(function() {
             '<div class="stock-badge ' + cls + '">' +
             '<i class="fas fa-' + icon + '"></i>' + txt + '</div>'
         );
-        $('#cantidad').focus();
+        if (stock > 0) $('#cantidad').focus();
     });
 });
 
