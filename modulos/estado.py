@@ -58,9 +58,9 @@ def detalles_estado():
                    d.cantidadretirada, d.quienentrego, d.renglon
             FROM almacenes.vdetallesretiromateriales2 d
             JOIN almacenes.retiromateriales r ON r.idretiro = d.id
-            WHERE r.quienpidio = %s
+            WHERE r.sector = %s
             ORDER BY r.idretiro DESC, d.renglon
-        """, (usuario_id,))
+        """, (id_sector,))
 
     elif tipo == 'transferencia':
         cursor_almacenes.execute("""
