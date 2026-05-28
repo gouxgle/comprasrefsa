@@ -449,6 +449,10 @@ def _build_retiro_pdf(id_retiro):
         ])
 
     N_DATA = 30
+    # Si hay más ítems que N_DATA, extender al siguiente múltiplo de N_DATA
+    n_items = len(filas) - 1  # sin header
+    if n_items > N_DATA:
+        N_DATA = ((n_items // 30) + 1) * 30
     while len(filas) < N_DATA + 1:
         filas.append([Paragraph('', tdc)] * 4)
 
