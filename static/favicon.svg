@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Fondo -->
+  <rect width="32" height="32" rx="6" fill="#1565c0"/>
+  <!-- Techo del depósito -->
+  <polygon points="4,14 16,5 28,14" fill="#ffffff" opacity="0.95"/>
+  <!-- Cuerpo del depósito -->
+  <rect x="6" y="14" width="20" height="13" fill="#ffffff" opacity="0.9"/>
+  <!-- Puerta central -->
+  <rect x="12" y="19" width="8" height="8" rx="1" fill="#1565c0"/>
+  <!-- Ventana izquierda -->
+  <rect x="8" y="17" width="3" height="3" rx="0.5" fill="#1565c0" opacity="0.6"/>
+  <!-- Ventana derecha -->
+  <rect x="21" y="17" width="3" height="3" rx="0.5" fill="#1565c0" opacity="0.6"/>
+  <!-- Línea techo/pared -->
+  <line x1="6" y1="14" x2="26" y2="14" stroke="#1565c0" stroke-width="0.5"/>
+</svg>
