@@ -1,7 +1,7 @@
 import conexiones
 
 bind = "0.0.0.0:8080"
-workers = 2
+workers = 4  # 1 worker por cada ~1.5 usuarios simultáneos (6 PCs)
 timeout = 300
 graceful_timeout = 60
 keepalive = 5
