@@ -7,7 +7,10 @@ DB_CONFIG = {
     "host":            os.environ["MYSQL_HOST"],
     "user":            os.environ["MYSQL_USER"],
     "password":        os.environ["MYSQL_PASSWORD"],
-    "connect_timeout": 5,   # no cuelga si MySQL no responde
+    "connect_timeout": 5,    # no cuelga al conectar
+    "connection_timeout": 5,
+    "read_timeout":    60,   # falla rápido si MySQL muere mid-query (no bloquea el worker)
+    "write_timeout":   30,
 }
 
 def get_connection(db_name):

@@ -2,7 +2,7 @@ import conexiones
 
 bind = "0.0.0.0:8080"
 workers = 2
-timeout = 120
+timeout = 300
 keepalive = 5
 worker_class = "sync"
 
