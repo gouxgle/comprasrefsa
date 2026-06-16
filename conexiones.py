@@ -1,5 +1,6 @@
 # conexiones.py
 import os
+import time
 import mysql.connector
 from mysql.connector import Error
 
@@ -7,16 +8,26 @@ DB_CONFIG = {
     "host":            os.environ["MYSQL_HOST"],
     "user":            os.environ["MYSQL_USER"],
     "password":        os.environ["MYSQL_PASSWORD"],
-    "connect_timeout": 5,    # no cuelga al conectar
+    "connect_timeout": 5,
     "connection_timeout": 5,
-    "read_timeout":    60,   # falla rápido si MySQL muere mid-query (no bloquea el worker)
+    "read_timeout":    60,
     "write_timeout":   30,
 }
 
-def get_connection(db_name):
-    conn = mysql.connector.connect(database=db_name, **DB_CONFIG)
-    cursor = conn.cursor(buffered=True)
-    return conn, cursor
+def get_connection(db_name, retries=10, delay=3):
+    """Conecta a MySQL con reintentos — tolera que MySQL esté ocupado al arrancar."""
+    last_exc = None
+    for attempt in range(1, retries + 1):
+        try:
+            conn = mysql.connector.connect(database=db_name, **DB_CONFIG)
+            cursor = conn.cursor(buffered=True)
+            return conn, cursor
+        except Exception as exc:
+            last_exc = exc
+            print(f"[conexiones] {db_name}: intento {attempt}/{retries} falló — {exc}")
+            if attempt < retries:
+                time.sleep(delay)
+    raise last_exc
 
 def check_connection(conn, cursor, db_name):
     """Verifica con ping. Si la conexión está muerta, cierra la vieja y abre nueva."""
