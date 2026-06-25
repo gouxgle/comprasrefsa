@@ -337,12 +337,12 @@ def _build_retiro_pdf(id_retiro):
                j1.jefatura AS sector_nombre,
                j2.jefatura AS destino_nombre,
                op_pide.DescOperario AS realizada_por,
-               op_retira.DescOperario AS operario
+               per.nombre AS operario
         FROM almacenes.retiromateriales r
         LEFT JOIN comun.jefaturas j1  ON j1.idjefatura   = r.sector
         LEFT JOIN comun.jefaturas j2  ON j2.idjefatura   = r.destino
-        LEFT JOIN comun.operarios op_pide   ON op_pide.IdOperario   = r.quienpidio
-        LEFT JOIN comun.operarios op_retira ON op_retira.IdOperario = r.quienretiro
+        LEFT JOIN comun.operarios op_pide ON op_pide.IdOperario = r.quienpidio
+        LEFT JOIN comun.personal  per     ON per.idlegajo       = r.quienretiro
         WHERE r.idretiro = %s
     """, (id_retiro,))
     cab = cursor_almacenes.fetchone()
@@ -545,12 +545,12 @@ def imprimir_popup_retiro(id_retiro):
                j1.jefatura AS sector_nombre,
                j2.jefatura AS destino_nombre,
                op_pide.DescOperario AS realizada_por,
-               op_retira.DescOperario AS operario
+               per.nombre AS operario
         FROM almacenes.retiromateriales r
         LEFT JOIN comun.jefaturas j1     ON j1.idjefatura  = r.sector
         LEFT JOIN comun.jefaturas j2     ON j2.idjefatura  = r.destino
-        LEFT JOIN comun.operarios op_pide   ON op_pide.IdOperario   = r.quienpidio
-        LEFT JOIN comun.operarios op_retira ON op_retira.IdOperario = r.quienretiro
+        LEFT JOIN comun.operarios op_pide ON op_pide.IdOperario = r.quienpidio
+        LEFT JOIN comun.personal  per     ON per.idlegajo       = r.quienretiro
         WHERE r.idretiro = %s
     """, (id_retiro,))
     cab = cursor_almacenes.fetchone()
