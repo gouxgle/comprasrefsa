@@ -336,18 +336,20 @@ def _build_retiro_pdf(id_retiro):
                r.ubicacion, r.detalles,
                j1.jefatura AS sector_nombre,
                j2.jefatura AS destino_nombre,
-               op_pide.DescOperario AS realizada_por
+               op_pide.DescOperario AS realizada_por,
+               op_retira.DescOperario AS operario
         FROM almacenes.retiromateriales r
         LEFT JOIN comun.jefaturas j1  ON j1.idjefatura   = r.sector
         LEFT JOIN comun.jefaturas j2  ON j2.idjefatura   = r.destino
-        LEFT JOIN comun.operarios op_pide ON op_pide.IdOperario = r.quienpidio
+        LEFT JOIN comun.operarios op_pide   ON op_pide.IdOperario   = r.quienpidio
+        LEFT JOIN comun.operarios op_retira ON op_retira.IdOperario = r.quienretiro
         WHERE r.idretiro = %s
     """, (id_retiro,))
     cab = cursor_almacenes.fetchone()
     if not cab:
         return None
 
-    id_ret, fecha_ret, ubicacion, detalles, sector_nombre, destino_nombre, realizada_por = cab
+    id_ret, fecha_ret, ubicacion, detalles, sector_nombre, destino_nombre, realizada_por, operario = cab
 
     cursor_almacenes.execute("""
         SELECT d.renglon, d.cd1, d.cd2, d.cantidadpedida,
@@ -390,6 +392,7 @@ def _build_retiro_pdf(id_retiro):
     destino_str  = (destino_nombre or '')
     ubic_str     = (ubicacion      or '').upper()
     realiza_str  = (realizada_por  or '').strip().upper()
+    operario_str = (operario       or '').strip().upper()
 
     # ── Bloque superior: logo + Fecha ────────────────────────────────────────
     try:
@@ -422,7 +425,7 @@ def _build_retiro_pdf(id_retiro):
 
     sector_row = Table([[
         Paragraph(f'Sector: {sector_str}', mono8),
-        Paragraph('Operario:', mono8),
+        Paragraph(f'Operario: {operario_str}', mono8),
     ]], colWidths=[W * 0.52, W * 0.48])
     sector_row.setStyle(_np)
 
@@ -541,18 +544,20 @@ def imprimir_popup_retiro(id_retiro):
                r.ubicacion,
                j1.jefatura AS sector_nombre,
                j2.jefatura AS destino_nombre,
-               op_pide.DescOperario AS realizada_por
+               op_pide.DescOperario AS realizada_por,
+               op_retira.DescOperario AS operario
         FROM almacenes.retiromateriales r
         LEFT JOIN comun.jefaturas j1     ON j1.idjefatura  = r.sector
         LEFT JOIN comun.jefaturas j2     ON j2.idjefatura  = r.destino
-        LEFT JOIN comun.operarios op_pide ON op_pide.IdOperario = r.quienpidio
+        LEFT JOIN comun.operarios op_pide   ON op_pide.IdOperario   = r.quienpidio
+        LEFT JOIN comun.operarios op_retira ON op_retira.IdOperario = r.quienretiro
         WHERE r.idretiro = %s
     """, (id_retiro,))
     cab = cursor_almacenes.fetchone()
     if not cab:
         return "Vale no encontrado", 404
 
-    id_ret, fecha_ret, ubicacion, sector_nombre, destino_nombre, realizada_por = cab
+    id_ret, fecha_ret, ubicacion, sector_nombre, destino_nombre, realizada_por, operario = cab
 
     cursor_almacenes.execute("""
         SELECT d.renglon, d.cd1, d.cd2, d.cantidadpedida,
@@ -569,6 +574,7 @@ def imprimir_popup_retiro(id_retiro):
     destino_str = (destino_nombre or '').upper()
     ubic_str    = (ubicacion      or '').upper()
     quien_str   = (realizada_por  or '').upper()
+    operario_str_h = (operario   or '').upper()
 
     filas_html = ''
     for renglon, cd1, cd2, cant_ped, material in items:
@@ -694,7 +700,7 @@ def imprimir_popup_retiro(id_retiro):
 
   <div class="info-row">
     <span>Sector: {sector_str}</span>
-    <span>Operario:</span>
+    <span>Operario: {operario_str_h}</span>
   </div>
 
   <!-- tabla -->
