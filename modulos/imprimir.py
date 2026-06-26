@@ -1,5 +1,5 @@
 # modulos/imprimir.py
-from flask import Blueprint, render_template, session, make_response
+from flask import Blueprint, render_template, session, make_response, request
 from conexiones import cursor, check_connection, conn, conn_almacenes, cursor_almacenes
 from modulos.utils import login_requerido, puede_almacenes
 from io import BytesIO
@@ -24,9 +24,10 @@ def imprimir():
     conn, cursor = check_connection(conn, cursor, 'comun')
     conn_almacenes, cursor_almacenes = check_connection(conn_almacenes, cursor_almacenes, 'almacenes')
 
-    usuario_id  = session.get('id')
-    id_sector   = session.get('id_sector')
-    es_almacen  = puede_almacenes()
+    usuario_id      = session.get('id')
+    id_sector       = session.get('id_sector')
+    es_almacen      = puede_almacenes()
+    solo_pendientes = request.args.get('todos', '0') != '1'
 
     # Almacén/admin ve todos los PIMs; usuarios regulares ven los suyos + su sector
     if es_almacen:
@@ -68,12 +69,14 @@ def imprimir():
     ]
 
     # Almacén/admin ve todos los retiros; usuarios regulares ven los suyos + su sector
+    filtro_estado = "AND r.estado = 30" if solo_pendientes else ""
     if es_almacen:
-        cursor_almacenes.execute("""
+        cursor_almacenes.execute(f"""
             SELECT r.idretiro, r.fechapedido,
                    COALESCE(op.DescOperario, '') AS nombre_retira,
                    j.jefatura AS sector_nombre,
-                   COUNT(d.renglon) AS total_items
+                   COUNT(d.renglon) AS total_items,
+                   r.estado
             FROM almacenes.retiromateriales r
             LEFT JOIN almacenes.detallesretiromateriales d
                    ON d.idretiro = r.idretiro
@@ -81,16 +84,18 @@ def imprimir():
                    ON op.IdOperario = r.quienretiro
             LEFT JOIN comun.jefaturas j
                    ON j.idjefatura = r.destino
-            GROUP BY r.idretiro, r.fechapedido, op.DescOperario, j.jefatura
+            WHERE 1=1 {filtro_estado}
+            GROUP BY r.idretiro, r.fechapedido, op.DescOperario, j.jefatura, r.estado
             ORDER BY r.idretiro DESC
             LIMIT 500
         """)
     else:
-        cursor_almacenes.execute("""
+        cursor_almacenes.execute(f"""
             SELECT r.idretiro, r.fechapedido,
                    COALESCE(op.DescOperario, '') AS nombre_retira,
                    j.jefatura AS sector_nombre,
-                   COUNT(d.renglon) AS total_items
+                   COUNT(d.renglon) AS total_items,
+                   r.estado
             FROM almacenes.retiromateriales r
             LEFT JOIN almacenes.detallesretiromateriales d
                    ON d.idretiro = r.idretiro
@@ -98,8 +103,8 @@ def imprimir():
                    ON op.IdOperario = r.quienretiro
             LEFT JOIN comun.jefaturas j
                    ON j.idjefatura = r.destino
-            WHERE r.quienpidio = %s OR r.sector = %s
-            GROUP BY r.idretiro, r.fechapedido, op.DescOperario, j.jefatura
+            WHERE (r.quienpidio = %s OR r.sector = %s) {filtro_estado}
+            GROUP BY r.idretiro, r.fechapedido, op.DescOperario, j.jefatura, r.estado
             ORDER BY r.idretiro DESC
             LIMIT 200
         """, (usuario_id, id_sector))
@@ -110,6 +115,7 @@ def imprimir():
             'retira':  r[2],
             'sector':  r[3] or '',
             'total':   r[4],
+            'estado':  r[5],
         }
         for r in cursor_almacenes.fetchall()
     ]
@@ -119,6 +125,7 @@ def imprimir():
         usuario=session['usuario'],
         pims=pims,
         retiros=retiros,
+        solo_pendientes=solo_pendientes,
     )
 
 

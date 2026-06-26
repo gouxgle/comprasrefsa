@@ -108,12 +108,23 @@
 
     <!-- ── Retiros ────────────────────────────────────────────── -->
     <div class="tab-pane fade" id="tab-retiro" role="tabpanel">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-            <span class="text-muted small">
-                Sus últimos {{ retiros|length }} retiro(s) — haga clic en <i class="fas fa-print"></i> para generar el PDF.
+        <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+            <span class="text-muted small me-auto">
+                {{ retiros|length }} retiro(s){% if solo_pendientes %} pendientes{% endif %} — haga clic en <i class="fas fa-print"></i> para generar el PDF.
             </span>
             <input type="search" id="filtroRetiro" class="form-control form-control-sm filter-input"
-                   placeholder="Filtrar por Nro., sector o fecha…" autocomplete="off">
+                   style="max-width:240px" placeholder="Filtrar por Nro., sector o fecha…" autocomplete="off">
+            {% if solo_pendientes %}
+            <a href="{{ url_for('imprimir.imprimir', todos=1) }}"
+               class="btn btn-sm btn-outline-secondary text-nowrap">
+                <i class="fas fa-eye me-1"></i>Ver todos
+            </a>
+            {% else %}
+            <a href="{{ url_for('imprimir.imprimir') }}"
+               class="btn btn-sm btn-warning text-nowrap">
+                <i class="fas fa-filter me-1"></i>Solo pendientes
+            </a>
+            {% endif %}
         </div>
 
         {% if retiros %}
@@ -126,6 +137,7 @@
                         <th>Retira</th>
                         <th>Sector destino</th>
                         <th style="width:70px" class="text-center">Ítems</th>
+                        <th style="width:100px" class="text-center">Estado</th>
                         <th style="width:110px" class="text-center">Acción</th>
                     </tr>
                 </thead>
@@ -138,6 +150,17 @@
                         <td>{{ r.sector }}</td>
                         <td class="text-center">
                             <span class="badge bg-secondary">{{ r.total }}</span>
+                        </td>
+                        <td class="text-center">
+                            {% if r.estado == 30 %}
+                            <span class="badge bg-warning text-dark">Pendiente</span>
+                            {% elif r.estado == 32 %}
+                            <span class="badge bg-success">Retirado</span>
+                            {% elif r.estado == 37 %}
+                            <span class="badge bg-danger">Baja</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ r.estado }}</span>
+                            {% endif %}
                         </td>
                         <td class="text-center">
                             <a href="/imprimir_retiro/{{ r.id }}" target="_blank"
@@ -153,7 +176,7 @@
         {% else %}
         <div class="text-center py-5 text-muted">
             <i class="fas fa-inbox fa-3x mb-3"></i>
-            <p class="mb-0">No tiene Vales de Retiro registrados.</p>
+            <p class="mb-0">No hay vales de retiro{% if solo_pendientes %} pendientes{% endif %}.</p>
         </div>
         {% endif %}
     </div>
