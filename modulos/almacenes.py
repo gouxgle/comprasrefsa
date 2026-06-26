@@ -55,7 +55,9 @@ def retiros_sector(id_sector):
     global conn_almacenes, cursor_almacenes
     conn_almacenes, cursor_almacenes = check_connection(conn_almacenes, cursor_almacenes, 'almacenes')
 
-    cursor_almacenes.execute("""
+    solo_pendientes = request.args.get('todos', '0') != '1'
+    filtro_estado = "AND r.estado = 30" if solo_pendientes else ""
+    cursor_almacenes.execute(f"""
         SELECT r.idretiro,
                COALESCE(r.idproyectoespecial, 0)                        AS proyecto,
                r.fechapedido,
@@ -66,7 +68,7 @@ def retiros_sector(id_sector):
         LEFT JOIN comun.operarios op_pide   ON op_pide.IdOperario   = r.quienpidio
         LEFT JOIN comun.operarios op_retira ON op_retira.IdOperario  = r.quienretiro
         LEFT JOIN comun.personal  p         ON p.idlegajo             = r.quienretiro
-        WHERE r.sector = %s
+        WHERE r.sector = %s {filtro_estado}
         ORDER BY r.idretiro DESC
         LIMIT 300
     """, (id_sector,))

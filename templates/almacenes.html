@@ -131,7 +131,14 @@
                     <i class="fas fa-list me-1"></i>Vales de retiro
                     <span id="lblSector" class="text-muted ms-1"></span>
                 </span>
-                <span id="cntVales" class="badge bg-secondary"></span>
+                <div class="d-flex align-items-center gap-2">
+                    <span id="cntVales" class="badge bg-secondary"></span>
+                    <button id="btnTogglePendientes" onclick="togglePendientes()"
+                            class="btn btn-outline-secondary btn-sm py-0 px-2"
+                            style="font-size:.72rem;">
+                        <i class="fas fa-eye me-1"></i>Ver todos
+                    </button>
+                </div>
             </div>
             <div class="card-body p-0" style="max-height:210px; overflow-y:auto;">
                 <table class="table table-hover table-sm tbl-alm mb-0" id="tablaVales">
@@ -269,6 +276,28 @@ function toast(msg, ok) {
     toastBS.show();
 }
 
+// ── Filtro pendientes ─────────────────────────────────────────────────────────
+let soloPendientes = true;
+
+function togglePendientes() {
+    soloPendientes = !soloPendientes;
+    const btn = document.getElementById('btnTogglePendientes');
+    if (soloPendientes) {
+        btn.innerHTML = '<i class="fas fa-eye me-1"></i>Ver todos';
+        btn.className = 'btn btn-outline-secondary btn-sm py-0 px-2';
+    } else {
+        btn.innerHTML = '<i class="fas fa-filter me-1"></i>Solo pendientes';
+        btn.className = 'btn btn-warning btn-sm py-0 px-2';
+    }
+    const id = document.getElementById('cboSector').value;
+    if (id) cargarRetirosSector(id);
+}
+
+function cargarRetirosSector(id) {
+    const url = '/almacenes/retiros_sector/' + id + (soloPendientes ? '' : '?todos=1');
+    fetch(url).then(r => r.json()).then(cargarVales);
+}
+
 // ── Combo sector ──────────────────────────────────────────────────────────────
 document.getElementById('cboSector').addEventListener('change', function() {
     const id = this.value;
@@ -287,9 +316,7 @@ document.getElementById('cboSector').addEventListener('change', function() {
         return;
     }
 
-    fetch('/almacenes/retiros_sector/' + id)
-        .then(r => r.json())
-        .then(cargarVales);
+    cargarRetirosSector(id);
 });
 
 // ── Cargar grilla 1: vales ────────────────────────────────────────────────────
@@ -466,7 +493,8 @@ function recargarItems() {
 function recargarVales() {
     const sel = document.getElementById('cboSector');
     if (!sel.value) return;
-    fetch('/almacenes/retiros_sector/' + sel.value)
+    const url = '/almacenes/retiros_sector/' + sel.value + (soloPendientes ? '' : '?todos=1');
+    fetch(url)
         .then(r => r.json())
         .then(function(data) {
             cargarVales(data);
