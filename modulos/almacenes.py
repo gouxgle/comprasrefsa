@@ -56,18 +56,18 @@ def retiros_sector(id_sector):
     conn_almacenes, cursor_almacenes = check_connection(conn_almacenes, cursor_almacenes, 'almacenes')
 
     solo_pendientes = request.args.get('todos', '0') != '1'
-    filtro_estado = "AND r.estado = 30" if solo_pendientes else ""
+    # estado 30 = sin retirar, 31 = retiro parcial — ambos son "pendientes" como en FoxPro
+    filtro_estado = "AND r.estado IN (30, 31)" if solo_pendientes else ""
     cursor_almacenes.execute(f"""
         SELECT r.idretiro,
                COALESCE(r.idproyectoespecial, 0)                        AS proyecto,
                r.fechapedido,
                COALESCE(op_pide.DescOperario, '')                       AS quien_pide,
-               COALESCE(op_retira.DescOperario, p.nombre, '')           AS quien_retira,
+               COALESCE(p.nombre, '')                                    AS quien_retira,
                r.estado
         FROM almacenes.retiromateriales r
-        LEFT JOIN comun.operarios op_pide   ON op_pide.IdOperario   = r.quienpidio
-        LEFT JOIN comun.operarios op_retira ON op_retira.IdOperario  = r.quienretiro
-        LEFT JOIN comun.personal  p         ON p.idlegajo             = r.quienretiro
+        LEFT JOIN comun.operarios op_pide ON op_pide.IdOperario = r.quienpidio
+        LEFT JOIN comun.personal  p       ON p.idlegajo          = r.quienretiro
         WHERE r.sector = %s {filtro_estado}
         ORDER BY r.idretiro DESC
         LIMIT 300
