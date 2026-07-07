@@ -33,7 +33,10 @@ def check_connection(conn, cursor, db_name):
     """Verifica con ping. Si la conexión está muerta, cierra la vieja y abre nueva."""
     try:
         conn.ping(reconnect=False, attempts=1, delay=0)
-        # ping OK pero cursor puede quedar inválido tras reconexión previa
+        try:
+            conn.rollback()  # limpia transacciones pendientes si request anterior crasheó sin rollback
+        except Exception:
+            pass
         cursor = conn.cursor(buffered=True)
     except Exception:
         print(f"Reconectando a '{db_name}'...")
