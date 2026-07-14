@@ -44,7 +44,10 @@ def check_connection(conn, cursor, db_name):
             conn.close()
         except Exception:
             pass
-        conn, cursor = get_connection(db_name)
+        # Reintentos cortos: esto corre DENTRO de un request en vivo — no podemos
+        # bloquear el worker 30s (10x3s) como en el arranque. Si falla rápido,
+        # el request devuelve error en vez de trabar el único pool de workers.
+        conn, cursor = get_connection(db_name, retries=2, delay=1)
     return conn, cursor
 
 # Conexiones iniciales (al iniciar la app)
