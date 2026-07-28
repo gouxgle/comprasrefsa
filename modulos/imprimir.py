@@ -370,7 +370,7 @@ def _build_retiro_pdf(id_retiro):
 
     buf = BytesIO()
 
-    def st(name, size=8, align=TA_LEFT, bold=False):
+    def st(name, size=10, align=TA_LEFT, bold=False):
         fn = 'Courier-Bold' if bold else 'Courier'
         return ParagraphStyle(name, fontName=fn, fontSize=size,
                               alignment=align, leading=size + 3)
@@ -415,7 +415,7 @@ def _build_retiro_pdf(id_retiro):
 
     hdr_refsa = Paragraph(
         '<b>REFSA</b>',
-        ParagraphStyle('vrefsa', fontName='Courier-Bold', fontSize=11, leading=13))
+        ParagraphStyle('vrefsa', fontName='Courier-Bold', fontSize=13, leading=16))
 
     # ── Líneas de info ────────────────────────────────────────────────────────
     orden_row = Table([[
@@ -466,7 +466,7 @@ def _build_retiro_pdf(id_retiro):
     while len(filas) < N_DATA + 1:
         filas.append([Paragraph('', tdc)] * 4)
 
-    rh = [16] + [18] * N_DATA
+    rh = [18] + [18] * N_DATA
     tabla = Table(filas, colWidths=cw, rowHeights=rh, repeatRows=1)
     tabla.setStyle(TableStyle([
         ('BOX',          (0, 0), (-1, -1), 0.75, colors.black),
@@ -484,10 +484,10 @@ def _build_retiro_pdf(id_retiro):
     ]))
 
     # ── Pie de firmas ─────────────────────────────────────────────────────────
-    pie_s = ParagraphStyle('vps', fontName='Courier-Bold', fontSize=8,
-                           alignment=TA_CENTER, leading=10)
-    pie_f = ParagraphStyle('vpf', fontName='Courier',      fontSize=7,
-                           alignment=TA_LEFT,   leading=10)
+    pie_s = ParagraphStyle('vps', fontName='Courier-Bold', fontSize=10,
+                           alignment=TA_CENTER, leading=13)
+    pie_f = ParagraphStyle('vpf', fontName='Courier',      fontSize=9,
+                           alignment=TA_LEFT,   leading=12)
 
     pie = Table([
         [Paragraph('ALMACENES',      pie_s),
@@ -496,7 +496,7 @@ def _build_retiro_pdf(id_retiro):
         [Paragraph('Firma.........................<br/>Aclaracion...................', pie_f),
          Paragraph('Firma.........................<br/>Aclaracion...................', pie_f),
          Paragraph('Firma.........................<br/>Aclaracion...................', pie_f)],
-    ], colWidths=[W / 3, W / 3, W / 3], rowHeights=[16, 40])
+    ], colWidths=[W / 3, W / 3, W / 3], rowHeights=[22, 40])
     pie.setStyle(TableStyle([
         ('BOX',          (0, 0), (-1, -1), 0.75, colors.black),
         ('LINEAFTER',    (0, 0), (1,  -1), 0.5,  colors.black),
@@ -608,8 +608,8 @@ def imprimir_popup_retiro(id_retiro):
   * {{ margin:0; padding:0; box-sizing:border-box; }}
 
   body {{
-    font-family: Courier, monospace;
-    font-size: 9pt;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12pt;
     background: #e0e0e0;
     display: flex; flex-direction: column; align-items: center;
     padding: 16px;
@@ -626,22 +626,22 @@ def imprimir_popup_retiro(id_retiro):
 
   /* ── cabecera ── */
   .hdr-top {{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:2mm; }}
-  .hdr-fecha {{ font-size:8pt; text-align:right; }}
-  .refsa-title {{ font-size:11pt; font-weight:bold; margin:1mm 0; }}
-  .info-row {{ display:flex; justify-content:space-between; margin-bottom:1mm; font-size:8pt; }}
+  .hdr-fecha {{ font-size:11pt; text-align:right; }}
+  .refsa-title {{ font-size:15pt; font-weight:bold; margin:1mm 0; }}
+  .info-row {{ display:flex; justify-content:space-between; margin-bottom:1mm; font-size:11pt; }}
   hr {{ border:none; border-top:1px solid #000; margin:2mm 0; }}
 
   /* ── tabla ── */
   table {{ width:100%; border-collapse:collapse; margin-top:2mm; }}
   thead tr th {{
-    border:1px solid #000; padding:2px 4px;
-    font-size:8pt; font-weight:bold; text-align:center;
+    border:1px solid #000; padding:3px 4px;
+    font-size:11pt; font-weight:bold; text-align:center;
     background:#f0f0f0;
   }}
   tbody tr td {{
     border-left:1px solid #000; border-right:1px solid #000;
     border-bottom:1px solid #ddd;
-    padding:2px 4px; font-size:8pt; height:7mm;
+    padding:3px 4px; font-size:11pt; height:8mm;
   }}
   tbody tr:last-child td {{ border-bottom:1px solid #000; }}
   .tc {{ text-align:center; }}
@@ -653,11 +653,11 @@ def imprimir_popup_retiro(id_retiro):
   .firma-col {{
     flex:1; padding:3mm 4mm;
     border-right:1px solid #000;
-    font-size:8pt;
+    font-size:11pt;
   }}
   .firma-col:last-child {{ border-right:none; }}
   .firma-titulo {{ font-weight:bold; text-align:center; margin-bottom:6mm; }}
-  .firma-linea {{ border-top:1px solid #000; margin-top:1mm; font-size:7pt; color:#555; }}
+  .firma-linea {{ border-top:1px solid #000; margin-top:1mm; font-size:9pt; color:#555; }}
 
   /* ── barra de estado (solo pantalla) ── */
   #status-bar {{
