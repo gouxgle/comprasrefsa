@@ -436,56 +436,12 @@ def _build_retiro_pdf(id_retiro):
     ]], colWidths=[W * 0.52, W * 0.48])
     sector_row.setStyle(_np)
 
-    # ── Tabla de ítems ────────────────────────────────────────────────────────
-    # Cols: # | Codigo | Material | Cantidad
-    # Altura: ~756pt total − cabecera (~92pt) − pie (~58pt) − spacers (~7pt) = ~599pt
-    # Fila header 16pt + 20 filas × 29pt = 16 + 580 = 596pt ✓
-    cw = [W * 0.05, W * 0.12, W * 0.71, W * 0.12]
+    hr_flow = HRFlowable(width='100%', thickness=0.75, color=colors.black,
+                         spaceBefore=2, spaceAfter=2)
+    spacer_pre_tabla = Spacer(1, 0.12*cm)
+    spacer_pre_pie   = Spacer(1, 0.12*cm)
 
-    filas = [[
-        Paragraph('#',        th),
-        Paragraph('Codigo',   th),
-        Paragraph('Material', th),
-        Paragraph('Cantidad', th),
-    ]]
-
-    for renglon, cd1, cd2, cant_ped, material in items:
-        cant_fmt = f'{float(cant_ped):.2f}'.replace('.', ',')
-        filas.append([
-            Paragraph(str(renglon),   tdc),
-            Paragraph(f'{cd1} {cd2}', tdc),
-            Paragraph(material,       tdl),
-            Paragraph(cant_fmt,       tdr),
-        ])
-
-    N_DATA = 30
-    # Si hay más ítems que N_DATA, extender al siguiente múltiplo de N_DATA
-    n_items = len(filas) - 1  # sin header
-    if n_items > N_DATA:
-        N_DATA = ((n_items // 30) + 1) * 30
-    while len(filas) < N_DATA + 1:
-        filas.append([Paragraph('', tdc)] * 4)
-
-    # Altura automática por fila (None): si el material ocupa 2 líneas, la fila
-    # crece en vez de desbordarse y pisar la fila de arriba.
-    tabla = Table(filas, colWidths=cw, rowHeights=None, repeatRows=1)
-    tabla.setStyle(TableStyle([
-        ('BOX',          (0, 0), (-1, -1), 0.75, colors.black),
-        ('LINEBELOW',    (0, 0), (-1,  0), 0.75, colors.black),   # borde bajo cabecera
-        ('LINEBELOW',    (0, 1), (-1, -1), 0.4,  colors.black),   # separador entre cada ítem (estilo FoxPro)
-        ('LINEAFTER',    (0, 0), (2,  -1), 0.4,  colors.black),   # separadores verticales
-        ('FONTNAME',     (0, 0), (-1,  0), 'Courier-Bold'),
-        ('ALIGN',        (0, 0), (1,  -1), 'CENTER'),
-        ('ALIGN',        (2, 1), (2,  -1), 'LEFT'),
-        ('ALIGN',        (3, 0), (3,  -1), 'RIGHT'),
-        ('VALIGN',       (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING',   (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING',(0, 0), (-1, -1), 2),
-        ('LEFTPADDING',  (0, 0), (-1, -1), 3),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
-    ]))
-
-    # ── Pie de firmas ─────────────────────────────────────────────────────────
+    # ── Pie de firmas (se arma antes para poder medir su altura real) ──────────
     pie_s = ParagraphStyle('vps', fontName='Courier-Bold', fontSize=10,
                            alignment=TA_CENTER, leading=13)
     pie_f = ParagraphStyle('vpf', fontName='Courier',      fontSize=9,
@@ -510,17 +466,79 @@ def _build_retiro_pdf(id_retiro):
         ('RIGHTPADDING', (0, 0), (-1, -1), 4),
     ]))
 
+    # ── Tabla de ítems ────────────────────────────────────────────────────────
+    # Cols: # | Codigo | Material | Cantidad
+    cw = [W * 0.05, W * 0.12, W * 0.71, W * 0.12]
+    BASE_H  = 18   # alto fijo de fila de 1 línea (cabecera, ítems cortos y relleno)
+    PAD_V   = 4    # TOPPADDING + BOTTOMPADDING de la tabla (2 + 2)
+    MAT_W   = cw[2] - 6   # ancho útil col. Material (padding izq+der = 3+3)
+
+    filas = [[
+        Paragraph('#',        th),
+        Paragraph('Codigo',   th),
+        Paragraph('Material', th),
+        Paragraph('Cantidad', th),
+    ]]
+
+    item_heights = []
+    for renglon, cd1, cd2, cant_ped, material in items:
+        cant_fmt = f'{float(cant_ped):.2f}'.replace('.', ',')
+        p_mat = Paragraph(material, tdl)
+        _, h_mat = p_mat.wrap(MAT_W, 10000)   # altura real necesaria (1 o 2+ líneas)
+        item_heights.append(max(BASE_H, h_mat + PAD_V))
+        filas.append([
+            Paragraph(str(renglon),   tdc),
+            Paragraph(f'{cd1} {cd2}', tdc),
+            p_mat,
+            Paragraph(cant_fmt,       tdr),
+        ])
+    n_items = len(item_heights)
+
+    # Medir el espacio real disponible en la página para la tabla de ítems
+    # (resto de la hoja descontando cabecera y pie ya armados) — así el
+    # formulario siempre ocupa la hoja completa, con relleno de alto fijo.
+    used_h = 0.0
+    for flw in (hdr_top, hdr_refsa, orden_row, dest_row, hr_flow, sector_row, spacer_pre_tabla):
+        used_h += flw.wrap(W, 10000)[1]
+    _, pie_h = pie.wrap(W, 10000)
+    used_h += spacer_pre_pie.wrap(W, 10000)[1] + pie_h
+
+    # doc.height no incluye el padding interno por defecto del Frame de
+    # SimpleDocTemplate (6pt arriba + 6pt abajo) — se descuenta + margen de seguridad.
+    disponible   = doc.height - used_h - 14
+    filler_count = max(0, int((disponible - BASE_H - sum(item_heights)) // BASE_H))
+    for _ in range(filler_count):
+        filas.append([Paragraph('', tdc)] * 4)
+        item_heights.append(BASE_H)
+
+    rh = [BASE_H] + item_heights
+    tabla = Table(filas, colWidths=cw, rowHeights=rh, repeatRows=1)
+    tabla.setStyle(TableStyle([
+        ('BOX',          (0, 0), (-1, -1), 0.75, colors.black),
+        ('LINEBELOW',    (0, 0), (-1,  0), 0.75, colors.black),          # borde bajo cabecera
+        ('LINEBELOW',    (0, 1), (-1, n_items), 0.4, colors.black),      # separador solo entre renglones con texto
+        ('LINEAFTER',    (0, 0), (2,  -1), 0.4,  colors.black),          # separadores verticales
+        ('FONTNAME',     (0, 0), (-1,  0), 'Courier-Bold'),
+        ('ALIGN',        (0, 0), (1,  -1), 'CENTER'),
+        ('ALIGN',        (2, 1), (2,  -1), 'LEFT'),
+        ('ALIGN',        (3, 0), (3,  -1), 'RIGHT'),
+        ('VALIGN',       (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',   (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING',(0, 0), (-1, -1), 2),
+        ('LEFTPADDING',  (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+    ]))
+
     doc.build([
         hdr_top,
         hdr_refsa,
         orden_row,
         dest_row,
-        HRFlowable(width='100%', thickness=0.75, color=colors.black,
-                   spaceBefore=2, spaceAfter=2),
+        hr_flow,
         sector_row,
-        Spacer(1, 0.12*cm),
+        spacer_pre_tabla,
         tabla,
-        KeepTogether([Spacer(1, 0.12*cm), pie]),
+        KeepTogether([spacer_pre_pie, pie]),
     ])
     buf.seek(0)
     return buf
@@ -589,7 +607,7 @@ def imprimir_popup_retiro(id_retiro):
     for renglon, cd1, cd2, cant_ped, material in items:
         cant_fmt = f'{float(cant_ped):.2f}'.replace('.', ',')
         filas_html += f'''
-        <tr>
+        <tr class="item-row">
           <td class="tc">{renglon}</td>
           <td class="tc">{cd1} {cd2}</td>
           <td class="tl">{material}</td>
@@ -597,9 +615,10 @@ def imprimir_popup_retiro(id_retiro):
         </tr>'''
 
     # Rellenar hasta 25 filas para mantener el layout de página
+    # (sin separador de línea — solo se marca entre renglones con texto)
     filled = len(items)
     for _ in range(max(0, 25 - filled)):
-        filas_html += '<tr><td>&nbsp;</td><td></td><td></td><td></td></tr>'
+        filas_html += '<tr class="filler-row"><td>&nbsp;</td><td></td><td></td><td></td></tr>'
 
     html = f"""<!DOCTYPE html>
 <html lang="es">
@@ -642,9 +661,10 @@ def imprimir_popup_retiro(id_retiro):
   }}
   tbody tr td {{
     border-left:1px solid #000; border-right:1px solid #000;
-    border-bottom:1px solid #000;
     padding:3px 4px; font-size:11pt; height:8mm;
   }}
+  tbody tr.item-row td {{ border-bottom:1px solid #000; }}   /* separador solo entre renglones con texto */
+  tbody tr:last-child td {{ border-bottom:1px solid #000; }} /* cierre inferior de la tabla */
   .tc {{ text-align:center; }}
   .tl {{ text-align:left; }}
   .tr {{ text-align:right; }}
