@@ -466,11 +466,13 @@ def _build_retiro_pdf(id_retiro):
     while len(filas) < N_DATA + 1:
         filas.append([Paragraph('', tdc)] * 4)
 
-    rh = [18] + [18] * N_DATA
-    tabla = Table(filas, colWidths=cw, rowHeights=rh, repeatRows=1)
+    # Altura automática por fila (None): si el material ocupa 2 líneas, la fila
+    # crece en vez de desbordarse y pisar la fila de arriba.
+    tabla = Table(filas, colWidths=cw, rowHeights=None, repeatRows=1)
     tabla.setStyle(TableStyle([
         ('BOX',          (0, 0), (-1, -1), 0.75, colors.black),
         ('LINEBELOW',    (0, 0), (-1,  0), 0.75, colors.black),   # borde bajo cabecera
+        ('LINEBELOW',    (0, 1), (-1, -1), 0.4,  colors.black),   # separador entre cada ítem (estilo FoxPro)
         ('LINEAFTER',    (0, 0), (2,  -1), 0.4,  colors.black),   # separadores verticales
         ('FONTNAME',     (0, 0), (-1,  0), 'Courier-Bold'),
         ('ALIGN',        (0, 0), (1,  -1), 'CENTER'),
@@ -640,10 +642,9 @@ def imprimir_popup_retiro(id_retiro):
   }}
   tbody tr td {{
     border-left:1px solid #000; border-right:1px solid #000;
-    border-bottom:1px solid #ddd;
+    border-bottom:1px solid #000;
     padding:3px 4px; font-size:11pt; height:8mm;
   }}
-  tbody tr:last-child td {{ border-bottom:1px solid #000; }}
   .tc {{ text-align:center; }}
   .tl {{ text-align:left; }}
   .tr {{ text-align:right; }}
