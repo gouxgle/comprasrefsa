@@ -10,8 +10,8 @@ DB_CONFIG = {
     "password":        os.environ["MYSQL_PASSWORD"],
     "connect_timeout": 5,
     "connection_timeout": 5,
-    "read_timeout":    60,
-    "write_timeout":   30,
+    "read_timeout":    10,   # antes 60 — un socket colgado (NAT/firewall) bloqueaba el worker 60s
+    "write_timeout":   10,
 }
 
 def get_connection(db_name, retries=10, delay=3):
