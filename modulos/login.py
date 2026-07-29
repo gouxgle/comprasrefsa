@@ -6,24 +6,42 @@ login_bp = Blueprint('login', __name__)
 conn, cursor = check_connection(conn, cursor, 'comun')
 
 
+def _cp1252_bytes(s):
+    """
+    Codifica a los bytes originales de 1 byte que tenía el dato en FoxPro.
+    cp1252 tiene huecos sin asignar (0x81, 0x8D, 0x8F, 0x90, 0x9D) — la migración
+    original dejaba esos bytes tal cual (equivalente a latin-1) en vez de
+    reemplazarlos. Usar solo 'cp1252' con errors='replace' los convierte en '?'
+    y corrompe la comparación para cualquier clave que contenga esos bytes,
+    dejando a esos usuarios sin poder loguearse nunca (fix: 2026-07-29).
+    """
+    out = bytearray()
+    for ch in s:
+        try:
+            out += ch.encode('cp1252')
+        except UnicodeEncodeError:
+            out.append(ord(ch) if ord(ch) < 256 else 0x3F)
+    return bytes(out)
+
+
 def _foxpro_pass_check(clave, nombre, pass_hex):
     """
     Verifica la clave contra el campo Pass del sistema FoxPro.
     Algoritmo extraído del exe:
         result += CHR(BITXOR(ASC(clave[i]), ASC(nombre[MOD(i, len(nombre))+1]) * 2))
     XOR simétrico: misma operación para cifrar y descifrar.
-    Pass en MySQL viaja como UTF-8 → se convierte a cp1252 para obtener los bytes originales.
+    Pass en MySQL viaja como UTF-8 → se convierte a los bytes originales de 1 byte.
     """
     if not pass_hex or not clave or not nombre:
         return False
     try:
         nombre = nombre.strip()
         lnombre = len(nombre)
-        stored_bytes = bytes.fromhex(pass_hex).decode('utf-8').encode('cp1252', errors='replace')
+        stored_bytes = _cp1252_bytes(bytes.fromhex(pass_hex).decode('utf-8'))
         if len(stored_bytes) != len(clave):
             return False
         result = b''
-        for i, ch in enumerate(clave.encode('cp1252', errors='replace'), start=1):
+        for i, ch in enumerate(_cp1252_bytes(clave), start=1):
             key_byte = (ord(nombre[i % lnombre]) * 2) & 0xFF
             result += bytes([ch ^ key_byte])
         return result == stored_bytes
