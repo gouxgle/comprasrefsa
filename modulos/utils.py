@@ -51,3 +51,27 @@ def almacenes_requerido(f):
         resp.headers['Expires'] = '0'
         return resp
     return decorada
+
+
+def respuesta_csv(cols, filas, nombre):
+    """CSV para "A Excel": ';' + BOM y coma decimal, como lo abre Excel en español.
+    cols: [(clave, título, tipo)] — tipo 'n' = numérico."""
+    import csv, io
+    from flask import Response
+    buf = io.StringIO()
+    buf.write('﻿')
+    w = csv.writer(buf, delimiter=';')
+    w.writerow([t for _, t, _ in cols])
+    for f in filas:
+        fila = []
+        for k, _, ty in cols:
+            v = f.get(k)
+            if v is None:
+                fila.append('')
+            elif ty == 'n' and isinstance(v, (int, float)):
+                fila.append(str(v).replace('.', ','))
+            else:
+                fila.append(v)
+        w.writerow(fila)
+    return Response(buf.getvalue(), mimetype='text/csv',
+                    headers={'Content-Disposition': f'attachment; filename={nombre}'})

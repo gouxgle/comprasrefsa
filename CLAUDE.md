@@ -9,7 +9,7 @@ Contexto del proyecto para Claude Code. Este archivo se carga automáticamente e
 - **Backend:** Flask + mysql-connector-python (cursores directos, sin ORM)
 - **Base de datos:** MySQL en `192.168.0.7` — BDs `comun` y `almacenes`
 - **Contenedor:** Docker, `container_name=almacenes_web`, `network_mode=host`, puerto 8080
-- **Volume mount:** `.:/app` — hot-reload activo para templates y módulos Python sin rebuild
+- **Volume mount:** `.:/app` — gunicorn (4 workers) cachea templates y módulos: tras cambiar Python **o templates** recargar: `docker exec almacenes_web python -c "import os,signal; os.kill(1, signal.SIGHUP)"` (graceful, sin corte)
 - **PDFs:** ReportLab (`SimpleDocTemplate`, `Table`, `Paragraph`, `HRFlowable`, `Image`)
 - **Credenciales:** guardadas en `.env` (excluido del repo). Copiar `.env.example` → `.env` para desplegar
 
@@ -27,6 +27,12 @@ modulos/
   retiro.py             # Blueprint retiro_bp — Vales de Retiro de Materiales
   estado.py             # Blueprint estado_bp — consulta estado de pedidos
   imprimir.py           # Blueprint imprimir_bp — generación de PDFs
+  almacenes.py          # Blueprint almacenes — pestaña Retiro (autorizar/entregar vales)
+  ingreso.py            # Blueprint ingreso — pestaña Ingreso (OC → PIM → stock)
+  devoluciones.py       # Blueprint devoluciones — pestaña Devoluciones (Page10 FoxPro)
+  movimientos.py        # Blueprint movimientos — pestaña Movimientos, solo consultas (Page11 FoxPro)
+  buscar.py             # Blueprint buscar — búsquedas select2 de personal y materiales
+  autorizaciones.py     # Blueprint autorizaciones — autorización de pedidos firmados (permisos.exe)
   utils.py              # Decorador @login_requerido
 templates/              # Jinja2, extienden base.html (Bootstrap 5 + Font Awesome)
 static/                 # CSS (style.css) + Logo_REFSA.jpg
@@ -106,6 +112,36 @@ Al crear un retiro nuevo:
 
 ---
 
+### Ingreso de mercadería (`/almacenes/ingreso`) — réplica de Page2 de `fox/almacenes3.exe`
+- Flujo: Proveedor → OC pendientes (`pedidosreales.estado < 23`) → renglón (`detallespedidosreales`) → PIM (`detallespedidosvirtuales.ordendecompra/renglonodc`) → cantidad + comprobante
+- Comprobante = `almacenes.comprobantes` (factura/remito por proveedor); en `ingresospedidos*` y `movisproyectosespeciales` se guarda **idcomprobante**
+- Estados: 22 = ingresada parcial, 23 = ingresada total (detalle y cabecera de OC y PIM)
+- Stock: sector 26 (`almacenes ss`) → `materiales.stock`; otro sector → `materialesdesectores.stock`. `materiales.total` solo se suma si sector=26 (ingreso por renglón) o siempre (OC completa) — igual que FoxPro
+- PIM con `idproyectoespecial` → no toca stock; actualiza `detallesproyectosespeciales` + `movisproyectosespeciales`
+- Máximo por ingreso = MIN(resta OC, resta PIM). Renglones OC sin PIM no se pueden ingresar
+- Diferencias deliberadas con FoxPro: cabecera OC pasa a 22 también en ingresos parciales; "OC completa" rechazada si hubo cualquier ingreso previo; error si falta la fila en `materialesdesectores` (FoxPro perdía el stock en silencio); corregidos estados 32/31 de proyectos especiales y el COUNT sin filtro por PIM
+
+### Devoluciones (`/almacenes/devoluciones`) — réplica de Page10
+- Listado = equivalente a vista `vdevoluciones1` (ítems de retiro + SUM devuelto). Se consulta con SQL directo: la vista agrupa 430k filas y tarda 4-8 s. Exige al menos un filtro, máx. 1000 filas
+- Devolver: `INSERT devoluciones (retiro, renglon, cantdevuelta, fechadevolucion, quiendevolvio, motivo)`. **No** toca `detallesretiromateriales`; lo devuelto = SUM(devoluciones)
+- Destino: Sector → `materialesdesectores.stock` (sector del retiro) + `materiales.total`; Almacén → `materiales.stock`; No reintegrable → nada
+- Retiro de proyecto especial → `detallesproyectosespeciales` (cantidadout −, cantidadactual +, estadoout 30/31)
+- "Sin orden de retiro" inserta sin retiro/renglón (en FoxPro nunca funcionó: 0 filas en la BD)
+
+### Movimientos (`/almacenes/movimientos`) — réplica de Page11 (solo lectura)
+- Consultas definidas en `CONSULTAS` de `movimientos.py`; filtros Sector / Material / Fecha (solo "desde" = ese día; ambas = BETWEEN)
+- Stock exige sector; "Con falta entregar" usa `vmatsdesectoressiningresar`
+- Ingresos y Salidas son maestro → detalle; Ingresos material y Salidas material muestran totales
+- Máx. 3000 filas en pantalla, 50000 en "A Excel" (CSV con `;` y BOM)
+- `salidas_material` necesita `STRAIGHT_JOIN` (sin él >10 s y corta por read_timeout)
+
+### Autorizaciones (`/autorizaciones`) — réplica de `fox/permisos.exe`
+- **Acceso:** solo operarios con tipo `A, A0, J0, J1, D0, C0, I0–I7` en `comun.asignaciones` (`TIPOS_HABILITADOS`). El ítem del menú superior sale del context processor `puede_autorizar` (cacheado en `session['aut_tipos']`). Con varios tipos elige con cuál trabaja (se propone primero el de gerencia)
+- **Tipo → alcance:** `tiposoperarios.idjefatura` = 1 (gerencia) → Pedidos / Retiros / Compras, autoriza con **4**; otra jefatura → Pedidos / Retiros de su subgerencia, autoriza con **3**. `autorizaciones`: 1 req. Sub-Gerencia, 2 req. Gerencia, 3/4 autorizado
+- **J1 (secretaría, ej. QUIROS JULIO 703):** debe elegir el gerente J0 que firmó → queda en `autorizadopor`. El FoxPro guardaba el nombre en un campo numérico (quedaba 0); acá se guarda el IdOperario
+- Pedidos: `vpedidosvirtuales1` estado 0 · Retiros: `estado < 2` (con los estados actuales 30/32/39 la lista sale siempre vacía, igual que en FoxPro) · Compras: `vpedidosreales1 idautorizacion < 2`
+- Autorizar P.I.M. actualiza cabecera + detalles (+ P.E.); Compra pone `estado = 21` y `fechaautorizado`. El servidor revalida que siga pendiente y en el alcance del usuario
+
 ## PDFs con ReportLab
 
 ### PIM (`/imprimir_pim/<id>`) — A4 apaisado (landscape)
@@ -144,6 +180,13 @@ docker logs -f almacenes_web
 ---
 
 ## Convenciones del código
+
+- **`conexiones.py` lo importa el maestro de gunicorn** (`gunicorn.conf.py`): si se modifica, el HUP no alcanza → `docker restart almacenes_web`
+- **Transacciones:** mysql-connector trabaja con autocommit apagado; un SELECT deja la transacción abierta. `app.teardown_request` llama a `conexiones.cerrar_transacciones()` (rollback al final de cada request). Sin eso, un worker ocioso retiene el metadata lock y el `ALTER TABLE … AUTO_INCREMENT` que hace el FoxPro (ej. `pedidosvirtuales`) queda esperando → **todo almacenes bloqueado**. Toda escritura debe hacer `commit()` antes de responder
+- **Sesión MySQL:** `conexiones._configurar_sesion` fija `lock_wait_timeout = 8` (el global del servidor es 1 año). Sin eso, cada consulta que espera un lock queda huérfana en MySQL cuando el cliente corta a los 10 s, y se agotan las 300 conexiones → caída de todos los sistemas. Errores de MySQL → página `error_bd.html` / JSON 503
+- **Producción real:** almacenes.refsa.com.ar corre en la VM **mototrbo (192.168.0.42)**, no en este equipo (deb12sis). Se actualiza con `deploy.sh` (git pull de `main` + rebuild). Sin acceso SSH desde acá
+- **Vigía temporal:** contenedor `almacenes_vigia` (`tools/vigia_bloqueos.py`) corta conexiones ociosas de solo lectura de la app de mototrbo cuando hay un metadata lock esperando ≥ 20 s. Quitar (`docker rm -f almacenes_vigia`) cuando producción tenga el hotfix (`tools/hotfix_bloqueo_mysql.patch`)
+- Diagnóstico de bloqueos: `information_schema.processlist` (estado "Waiting for table metadata lock") + `information_schema.innodb_trx` (transacciones abiertas hace horas). Todas las conexiones llegan desde 192.168.0.21 (NAT): las de este servidor se ven con `ss -tn '( dport = :3306 )'`
 
 - Los blueprints usan `global conn, cursor` + `check_connection()` al inicio de cada ruta
 - `conexiones.py` expone `conn`, `cursor` (BD `comun`) y `conn_almacenes`, `cursor_almacenes` (BD `almacenes`)

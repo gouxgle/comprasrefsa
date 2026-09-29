@@ -1,0 +1,17 @@
+{% set _tabs = [
+    ('almacenes.',    'almacenes.panel',    'fa-truck-loading', 'Retiro'),
+    ('ingreso.',      'ingreso.panel',      'fa-dolly-flatbed', 'Ingreso'),
+    ('devoluciones.', 'devoluciones.panel', 'fa-undo-alt',      'Devoluciones'),
+    ('movimientos.',  'movimientos.panel',  'fa-exchange-alt',  'Movimientos'),
+    ('informes.',     'informes.panel',     'fa-chart-bar',     'Informes'),
+] %}
+<ul class="nav nav-tabs mt-3 mb-3">
+    {% for prefijo, endpoint, icono, titulo in _tabs %}
+    <li class="nav-item">
+        <a class="nav-link fw-semibold {{ 'active' if request.endpoint.startswith(prefijo) else '' }}"
+           href="{{ url_for(endpoint) }}">
+            <i class="fas {{ icono }} me-1"></i>{{ titulo }}
+        </a>
+    </li>
+    {% endfor %}
+</ul>

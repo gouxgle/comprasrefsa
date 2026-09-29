@@ -1,0 +1,412 @@
+{% extends "base.html" %}
+
+{% block title %}Almacenes — Devoluciones{% endblock %}
+
+{% block extra_css %}
+<style>
+.tbl-mov td, .tbl-mov th { font-size:.8rem; vertical-align:middle; white-space:nowrap; }
+.tbl-mov td.wrap { white-space:normal; min-width:220px; }
+.tbl-mov tbody tr.clickable { cursor:pointer; }
+.tbl-mov tbody tr.clickable:hover td { background:#e9f0ff; }
+.tbl-mov tbody tr.selected td { background:#d4edda !important; }
+.tbl-mov tbody tr.agotado td { color:#9aa5b1; }
+
+.filtros { background:#f8f9fa; border:1px solid #dee2e6; border-radius:.5rem; padding:.75rem 1rem; }
+.filtros .form-label, .dev-panel .form-label {
+    font-size:.72rem; text-transform:uppercase; letter-spacing:.03em;
+    color:#6c757d; margin-bottom:.2rem; font-weight:600; }
+
+.select2-container--default .select2-selection--single {
+    height:27px; border:1px solid #ced4da; border-radius:.25rem; font-size:.85rem; }
+.select2-container--default .select2-selection--single .select2-selection__rendered { line-height:25px; padding-left:.6rem; }
+.select2-container--default .select2-selection--single .select2-selection__arrow { height:25px; }
+.select2-results__option { font-size:.85rem; }
+.card-header .badge { color:#fff; }
+.card-header .badge:empty { display:none; }
+
+.dev-panel { border:2px solid #b45309; border-radius:.5rem; background:#fffaf2; }
+.dev-panel .dato-label { font-size:.7rem; text-transform:uppercase; color:#6c757d; letter-spacing:.03em; }
+.dev-panel .dato-val   { font-weight:700; font-size:1rem; }
+.dev-panel .inp-cant   { background:#fff3cd; font-weight:700; font-size:1.1rem; text-align:right; }
+.opciones .form-check { margin-bottom:.15rem; }
+.opciones .form-check-label { font-size:.82rem; }
+.resta { font-weight:700; color:#b45309; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% include '_almacenes_tabs.html' %}
+
+<!-- ── Filtros de búsqueda ───────────────────────────────────────────────── -->
+<div class="filtros mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-6 col-xl-2">
+            <label class="form-label">Departamento</label>
+            <select id="fSector" class="form-select form-select-sm">
+                <option value="">— Todos —</option>
+                {% for s in sectores %}<option value="{{ s.id }}">{{ s.nombre | upper }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-12 col-md-6 col-xl-4">
+            <label class="form-label">Material</label>
+            <select id="fMaterial" class="form-select form-select-sm"></select>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <label class="form-label">Quién retiró</label>
+            <select id="fQuienRetiro" class="form-select form-select-sm"></select>
+        </div>
+        <div class="col-6 col-md-3 col-xl-1">
+            <button class="btn btn-sm btn-primary w-100" onclick="buscar()">
+                <i class="fas fa-search me-1"></i>Buscar
+            </button>
+        </div>
+        <div class="col-12 col-md-auto col-xl-2">
+            <label class="form-label">N° Retiro / Proyecto</label>
+            <div class="input-group input-group-sm">
+                <input type="number" id="fRetiro" class="form-control" placeholder="Retiro">
+                <input type="number" id="fProyecto" class="form-control" placeholder="P.E.">
+                <button class="btn btn-outline-primary" onclick="ver()">Ver</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- ── Grilla de ítems retirados ─────────────────────────────────────── -->
+    <div class="col-12 col-xl-8">
+        <div class="card h-100">
+            <div class="card-header py-1 d-flex justify-content-between align-items-center">
+                <span class="small fw-bold"><i class="fas fa-list me-1"></i>Materiales retirados</span>
+                <span id="cntItems" class="badge bg-secondary"></span>
+            </div>
+            <div id="avisoTrunc" class="alert alert-warning py-1 px-2 m-2 small d-none">
+                Se muestran los 1000 más recientes. Afine la búsqueda para ver el resto.
+            </div>
+            <div class="card-body p-0" style="max-height:560px; overflow:auto;">
+                <table class="table table-sm tbl-mov mb-0">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th>N° Retiro</th><th>Reng.</th><th>P.E.</th><th>Código</th><th>Material</th>
+                            <th>Entregado</th><th class="text-end">Retirado</th>
+                            <th class="text-end">Devuelto</th><th class="text-end">Resta</th>
+                            <th class="text-end">De almacén</th><th>Sector</th><th>Quién retiró</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bodyItems">
+                        <tr><td colspan="12" class="text-center text-muted py-3">
+                            Busque por departamento, material, quién retiró o N° de retiro
+                        </td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Panel de devolución ───────────────────────────────────────────── -->
+    <div class="col-12 col-xl-4">
+        <div class="dev-panel p-3">
+            <div class="row g-2 opciones mb-2">
+                <div class="col-6">
+                    <div class="form-label">Tipo</div>
+                    <div class="form-check"><input class="form-check-input" type="radio" name="tipo" id="tipo1" value="1" checked>
+                        <label class="form-check-label" for="tipo1">Retiro de Sector</label></div>
+                    <div class="form-check"><input class="form-check-input" type="radio" name="tipo" id="tipo2" value="2">
+                        <label class="form-check-label" for="tipo2">Retiro de Proyecto Especial</label></div>
+                    <div class="form-check"><input class="form-check-input" type="radio" name="tipo" id="tipo3" value="3">
+                        <label class="form-check-label" for="tipo3">Sin orden de retiro</label></div>
+                </div>
+                <div class="col-6">
+                    <div class="form-label">Devuelve a stock de</div>
+                    <div class="form-check"><input class="form-check-input" type="radio" name="destino" id="dest1" value="1" checked>
+                        <label class="form-check-label" for="dest1">Sector</label></div>
+                    <div class="form-check"><input class="form-check-input" type="radio" name="destino" id="dest2" value="2">
+                        <label class="form-check-label" for="dest2">Almacén</label></div>
+                    <div class="form-check"><input class="form-check-input" type="radio" name="destino" id="dest3" value="3">
+                        <label class="form-check-label" for="dest3">Estado no reintegrable</label></div>
+                </div>
+            </div>
+
+            <!-- Solo para "Sin orden de retiro" -->
+            <div id="bloqueSinRetiro" class="d-none mb-2">
+                <label class="form-label">Material</label>
+                <select id="dMaterialSR" class="form-select form-select-sm"></select>
+                <label class="form-label mt-2">Sector al que vuelve</label>
+                <select id="dSectorSR" class="form-select form-select-sm">
+                    <option value="">— Seleccione —</option>
+                    {% for s in sectores %}<option value="{{ s.id }}">{{ s.nombre | upper }}</option>{% endfor %}
+                </select>
+            </div>
+
+            <div id="bloqueRetiro">
+                <div class="mb-2">
+                    <div class="dato-label">Material</div>
+                    <div class="dato-val" id="dMaterial">—</div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-4"><div class="dato-label">Retirado</div><div class="dato-val" id="dRetirado">—</div></div>
+                    <div class="col-4"><div class="dato-label">Ya devuelto</div><div class="dato-val" id="dDevuelto">—</div></div>
+                    <div class="col-4"><div class="dato-label">Resta</div><div class="dato-val resta" id="dResta">—</div></div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-5"><div class="dato-label">Retiro / Reng.</div><div class="dato-val" id="dRef">—</div></div>
+                    <div class="col-7"><div class="dato-label">Quién retiró</div><div class="dato-val small" id="dQuienRetiro">—</div></div>
+                </div>
+            </div>
+
+            <div class="mb-2">
+                <label class="form-label">Quién devuelve</label>
+                <select id="dQuienDevuelve" class="form-select form-select-sm"></select>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Motivo devolución</label>
+                <select id="dMotivo" class="form-select form-select-sm">
+                    <option value="">— Seleccione —</option>
+                    {% for m in motivos %}<option value="{{ m.id }}">{{ m.nombre | capitalize }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="row g-2 align-items-end">
+                <div class="col-6">
+                    <label class="form-label" for="dCantidad">A devolver</label>
+                    <input type="number" step="0.01" min="0" id="dCantidad" class="form-control inp-cant">
+                </div>
+                <div class="col-6">
+                    <button id="btnDevolver" class="btn btn-warning w-100 fw-bold py-2" disabled onclick="devolver()">
+                        <i class="fas fa-undo-alt me-1"></i>DEVOLVER ÍTEM
+                    </button>
+                </div>
+            </div>
+            <div class="small text-muted mt-1" id="dAyuda"></div>
+        </div>
+    </div>
+</div>
+
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="toastDev" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMsg"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let itemActivo = null;
+let ultimaBusqueda = null;   // querystring para refrescar después de devolver
+let toastBS = null;
+
+const fmt = v => parseFloat(v || 0).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const r2  = v => Math.round(parseFloat(v || 0) * 100) / 100;
+const resta = it => r2((it.cantidadretirada || 0) - (it.cantdevuelta || 0));
+
+function toast(msg, ok) {
+    const el = document.getElementById('toastDev');
+    el.className = 'toast align-items-center text-white border-0 ' + (ok ? 'bg-success' : 'bg-danger');
+    document.getElementById('toastMsg').textContent = msg;
+    toastBS.show();
+}
+
+function select2Ajax(sel, url, placeholder) {
+    return $(sel).select2({
+        placeholder: placeholder, allowClear: true, width: '100%', minimumInputLength: 2,
+        language: { inputTooShort: () => 'Escriba al menos 2 letras', noResults: () => 'Sin resultados',
+                    searching: () => 'Buscando…' },
+        ajax: { url: url, delay: 300, data: p => ({q: p.term}), processResults: d => d }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    toastBS = new bootstrap.Toast(document.getElementById('toastDev'), {delay: 3500});
+    select2Ajax('#fMaterial', '/almacenes/buscar/materiales', '— Código o descripción —');
+    select2Ajax('#fQuienRetiro', '/almacenes/buscar/personal', '— Legajo o nombre —');
+    select2Ajax('#dQuienDevuelve', '/almacenes/buscar/personal', '— Legajo o nombre —');
+    select2Ajax('#dMaterialSR', '/almacenes/buscar/materiales', '— Código o descripción —')
+        .on('change', actualizarBoton);
+    $('#fMaterial, #fQuienRetiro').on('select2:select', buscar);
+
+    document.querySelectorAll('input[name=tipo]').forEach(r => r.addEventListener('change', cambiarTipo));
+    ['dMotivo', 'dSectorSR'].forEach(id => document.getElementById(id).addEventListener('change', actualizarBoton));
+    document.querySelectorAll('input[name=destino]').forEach(r => r.addEventListener('change', actualizarBoton));
+    const cant = document.getElementById('dCantidad');
+    cant.addEventListener('input', actualizarBoton);
+    cant.addEventListener('focus', () => cant.select());
+    cant.addEventListener('blur', controlarCantidad);
+    ['fRetiro', 'fProyecto'].forEach(id => document.getElementById(id)
+        .addEventListener('keydown', e => { if (e.key === 'Enter') ver(); }));
+});
+
+const tipoSel    = () => parseInt(document.querySelector('input[name=tipo]:checked').value);
+const destinoSel = () => parseInt(document.querySelector('input[name=destino]:checked').value);
+
+// ── Búsquedas ────────────────────────────────────────────────────────────────
+function buscar() {
+    const p = new URLSearchParams();
+    const sec = document.getElementById('fSector').value;
+    const mat = $('#fMaterial').val();
+    const qr  = $('#fQuienRetiro').val();
+    if (sec) p.set('sector', sec);
+    if (mat) { const [c1, c2] = mat.split('-'); p.set('cd1', c1); p.set('cd2', c2); }
+    if (qr)  p.set('quienretiro', qr);
+    cargar(p.toString());
+}
+
+// FoxPro "Ver": por número de retiro y/o de proyecto especial
+function ver() {
+    const p = new URLSearchParams();
+    const ret = document.getElementById('fRetiro').value;
+    const pe  = document.getElementById('fProyecto').value;
+    if (!ret && !pe) { toast('Complete un número de orden de retiro o de proyecto especial', false); return; }
+    if (ret) p.set('retiro', ret);
+    if (pe)  p.set('proyecto', pe);
+    cargar(p.toString());
+}
+
+function cargar(qs, mantener) {
+    ultimaBusqueda = qs;
+    const prev = mantener && itemActivo ? itemActivo.idretiro + '-' + itemActivo.renglon : null;
+    fetch('/almacenes/devoluciones/items?' + qs).then(r => r.json()).then(function(res) {
+        if (!res.ok) { toast(res.msg, false); return; }
+        pintarItems(res.items, prev);
+        document.getElementById('avisoTrunc').classList.toggle('d-none', !res.truncado);
+    });
+}
+
+function pintarItems(items, prev) {
+    const body = document.getElementById('bodyItems');
+    document.getElementById('cntItems').textContent = items.length;
+    body.innerHTML = '';
+    if (tipoSel() !== 3) limpiarPanel();
+    if (!items.length) {
+        body.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-3">Sin resultados</td></tr>';
+        return;
+    }
+    items.forEach(function(it) {
+        const tr = document.createElement('tr');
+        tr.className = 'clickable' + (resta(it) <= 0 ? ' agotado' : '');
+        tr.innerHTML =
+            '<td><strong>' + it.idretiro + '</strong></td>' +
+            '<td>' + it.renglon + '</td>' +
+            '<td>' + (it.idproyectoespecial || '') + '</td>' +
+            '<td class="font-monospace">' + esc(it.cd1) + '-' + esc(it.cd2) + '</td>' +
+            '<td class="wrap">' + esc(it.material) + '</td>' +
+            '<td>' + esc(it.fechaentregado) + '</td>' +
+            '<td class="text-end">' + fmt(it.cantidadretirada) + '</td>' +
+            '<td class="text-end">' + fmt(it.cantdevuelta) + '</td>' +
+            '<td class="text-end resta">' + fmt(resta(it)) + '</td>' +
+            '<td class="text-end">' + fmt(it.dealmacen) + '</td>' +
+            '<td>' + esc(it.jefatura) + '</td>' +
+            '<td>' + esc(it.nombre || it.quienretiro) + '</td>';
+        tr.addEventListener('click', () => seleccionar(it, tr));
+        body.appendChild(tr);
+        if (prev && prev === it.idretiro + '-' + it.renglon) seleccionar(it, tr);
+    });
+}
+
+// ── Selección → panel (Grid1.Click del FoxPro) ───────────────────────────────
+function seleccionar(it, tr) {
+    document.querySelectorAll('#bodyItems tr').forEach(x => x.classList.remove('selected'));
+    tr.classList.add('selected');
+    itemActivo = it;
+    // retiro con proyecto especial → opción 2, sino opción 1
+    document.getElementById(it.idproyectoespecial ? 'tipo2' : 'tipo1').checked = true;
+    cambiarTipo();
+    document.getElementById('dMaterial').textContent  = it.cd1 + '-' + it.cd2 + '  ' + it.material;
+    document.getElementById('dRetirado').textContent  = fmt(it.cantidadretirada);
+    document.getElementById('dDevuelto').textContent  = fmt(it.cantdevuelta);
+    document.getElementById('dResta').textContent     = fmt(resta(it));
+    document.getElementById('dRef').textContent       = it.idretiro + ' / ' + it.renglon;
+    document.getElementById('dQuienRetiro').textContent = it.nombre || it.quienretiro || '—';
+    const cant = document.getElementById('dCantidad');
+    cant.value = resta(it) > 0 ? Math.min(1, resta(it)) : 0;   // FoxPro propone 1
+    actualizarBoton();
+}
+
+function limpiarPanel() {
+    itemActivo = null;
+    ['dMaterial', 'dRetirado', 'dDevuelto', 'dResta', 'dRef', 'dQuienRetiro']
+        .forEach(id => document.getElementById(id).textContent = '—');
+    document.getElementById('dCantidad').value = '';
+    actualizarBoton();
+}
+
+function cambiarTipo() {
+    const sinRetiro = tipoSel() === 3;
+    document.getElementById('bloqueSinRetiro').classList.toggle('d-none', !sinRetiro);
+    document.getElementById('bloqueRetiro').classList.toggle('d-none', sinRetiro);
+    // proyecto especial: vuelve al proyecto, "Devuelve a stock de" no aplica
+    document.querySelectorAll('input[name=destino]').forEach(r => r.disabled = tipoSel() === 2);
+    if (sinRetiro) {
+        document.querySelectorAll('#bodyItems tr').forEach(x => x.classList.remove('selected'));
+        itemActivo = null;
+        if (!document.getElementById('dCantidad').value) document.getElementById('dCantidad').value = 1;
+    }
+    actualizarBoton();
+}
+
+function maximo() {
+    return tipoSel() === 3 ? Infinity : (itemActivo ? resta(itemActivo) : 0);
+}
+
+// Text6.LostFocus: no puede superar lo disponible (retirado - ya devuelto)
+function controlarCantidad() {
+    const inp = document.getElementById('dCantidad');
+    if (r2(inp.value) > maximo()) {
+        toast('El monto a devolver supera al disponible (retirado - ya devuelto)', false);
+        inp.value = maximo();
+        actualizarBoton();
+    }
+}
+
+function faltante() {
+    const t = tipoSel(), cant = r2(document.getElementById('dCantidad').value);
+    if (t === 3) {
+        if (!$('#dMaterialSR').val()) return 'Elija el material devuelto';
+        if (destinoSel() === 1 && !document.getElementById('dSectorSR').value) return 'Elija el sector al que vuelve';
+    } else {
+        if (!itemActivo) return 'Seleccione un material retirado de la grilla';
+        if (t === 2 && !itemActivo.idproyectoespecial) return 'El retiro no es de un proyecto especial';
+        if (resta(itemActivo) <= 0) return 'Ese ítem ya fue devuelto por completo';
+    }
+    if (!document.getElementById('dMotivo').value) return 'Elija el motivo de la devolución';
+    if (cant <= 0) return 'Indique la cantidad a devolver';
+    if (cant > maximo()) return 'No puede devolver más de lo retirado menos lo ya devuelto';
+    return '';
+}
+
+function actualizarBoton() {
+    const f = faltante();
+    document.getElementById('btnDevolver').disabled = !!f;
+    document.getElementById('dAyuda').textContent = f;
+}
+
+function devolver() {
+    if (faltante()) return;
+    if (!confirm('¿Devuelve el material?')) return;
+    const t = tipoSel();
+    const body = {
+        tipo: t, destino: destinoSel(),
+        cantidad: r2(document.getElementById('dCantidad').value),
+        motivo: document.getElementById('dMotivo').value,
+        quien_devuelve: $('#dQuienDevuelve').val() || 0,
+    };
+    if (t === 3) {
+        const [c1, c2] = $('#dMaterialSR').val().split('-');
+        Object.assign(body, {cd1: c1, cd2: c2, sector: document.getElementById('dSectorSR').value});
+    } else {
+        Object.assign(body, {id_retiro: itemActivo.idretiro, renglon: itemActivo.renglon,
+                             sector: document.getElementById('fSector').value});
+    }
+    document.getElementById('btnDevolver').disabled = true;
+    fetch('/almacenes/devoluciones/devolver', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+    }).then(r => r.json()).catch(() => ({ok: false, msg: 'Error de conexión'})).then(function(res) {
+        toast(res.msg, res.ok);
+        if (res.ok && ultimaBusqueda && t !== 3) cargar(ultimaBusqueda, true);
+        else actualizarBoton();
+    });
+}
+</script>
+{% endblock %}

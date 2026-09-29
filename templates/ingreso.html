@@ -1,0 +1,686 @@
+{% extends "base.html" %}
+
+{% block title %}Almacenes — Ingreso{% endblock %}
+
+{% block extra_css %}
+<style>
+.tbl-ing td, .tbl-ing th { font-size:.8rem; vertical-align:middle; }
+.tbl-ing tbody tr.clickable { cursor:pointer; }
+.tbl-ing tbody tr.clickable:hover td { background:#e9f0ff; }
+.tbl-ing tbody tr.selected td { background:#d4edda !important; }
+.tbl-ing tbody tr.disabled td { color:#9aa5b1; cursor:not-allowed; }
+
+.ing-toolbar { background:#f8f9fa; border:1px solid #dee2e6; border-radius:.5rem; padding:.75rem 1rem; }
+.ing-toolbar .form-label { font-size:.72rem; text-transform:uppercase; letter-spacing:.03em;
+                           color:#6c757d; margin-bottom:.2rem; font-weight:600; }
+
+.select2-container--default .select2-selection--single {
+    height:31px; border:1px solid #ced4da; border-radius:.25rem; font-size:.85rem;
+}
+.select2-container--default .select2-selection--single .select2-selection__rendered { line-height:29px; padding-left:.6rem; }
+.select2-container--default .select2-selection--single .select2-selection__arrow { height:29px; }
+.select2-container--default.select2-container--focus .select2-selection--single,
+.select2-container--default.select2-container--open  .select2-selection--single { border-color:#86b7fe; }
+.select2-results__option { font-size:.85rem; }
+.card-header .badge { color:#fff; }
+.card-header .badge:empty { display:none; }
+.select2-container--default .select2-selection--single { height:27px; }
+.select2-container--default .select2-selection--single .select2-selection__rendered { line-height:25px; }
+.select2-container--default .select2-selection--single .select2-selection__arrow { height:25px; }
+
+.ing-panel { border:2px solid #0d47a1; border-radius:.5rem; background:#f5f9ff; }
+.ing-panel .dato-label { font-size:.7rem; text-transform:uppercase; color:#6c757d; letter-spacing:.03em; }
+.ing-panel .dato-val   { font-weight:700; font-size:1rem; }
+.ing-panel .inp-ingreso { background:#fff3cd; font-weight:700; font-size:1.1rem; text-align:right; }
+
+.pe-banner { background:#6f42c1; color:#fff; font-weight:700; letter-spacing:.3em;
+             text-align:center; border-radius:.35rem; padding:.3rem; font-size:.85rem; }
+.resta { font-weight:700; color:#b45309; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% include '_almacenes_tabs.html' %}
+
+<!-- ── Barra superior: proveedor / OC / comprobante ──────────────────────── -->
+<div class="ing-toolbar mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-12 col-lg-4">
+            <label class="form-label"><i class="fas fa-truck me-1"></i>Proveedor</label>
+            <select id="cboProveedor" class="form-select form-select-sm">
+                <option value=""></option>
+                {% for p in proveedores %}
+                <option value="{{ p.id }}">{{ p.nombre }} ({{ p.ocs }} OC)</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-lg-2">
+            <label class="form-label"><i class="fas fa-hashtag me-1"></i>Buscar OC</label>
+            <div class="input-group input-group-sm">
+                <input type="number" id="txtBuscarOC" class="form-control" placeholder="N° de OC">
+                <button class="btn btn-outline-primary" onclick="buscarOC()" title="Buscar">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </div>
+        <div class="col-12 col-lg-4">
+            <label class="form-label"><i class="fas fa-file-invoice me-1"></i>Factura / Remito</label>
+            <div class="input-group input-group-sm">
+                <select id="cboComprobante" class="form-select form-select-sm" disabled>
+                    <option value="">— Elija proveedor —</option>
+                </select>
+                <button id="btnNuevoComp" class="btn btn-outline-primary" disabled
+                        data-bs-toggle="modal" data-bs-target="#modalComp">
+                    <i class="fas fa-plus me-1"></i>Nuevo
+                </button>
+            </div>
+        </div>
+        <div class="col-6 col-lg-2 text-lg-end">
+            <button id="btnSubirOC" class="btn btn-sm btn-outline-success w-100" disabled
+                    onclick="subirOCCompleta()"
+                    title="Subir la Orden de Compra completa con este remito">
+                <i class="fas fa-check-double me-1"></i>OC completa
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+
+    <!-- ── Órdenes de compra pendientes ───────────────────────────────────── -->
+    <div class="col-12 col-lg-3">
+        <div class="card h-100">
+            <div class="card-header py-1 d-flex justify-content-between align-items-center">
+                <span class="small fw-bold"><i class="fas fa-file-contract me-1"></i>OC pendientes</span>
+                <span id="cntOCs" class="badge bg-secondary"></span>
+            </div>
+            <div class="card-body p-0" style="max-height:520px; overflow:auto;">
+                <table class="table table-sm tbl-ing mb-0">
+                    <thead class="table-light sticky-top">
+                        <tr><th>OC</th><th>Fecha</th><th class="text-end">Total</th><th></th></tr>
+                    </thead>
+                    <tbody id="bodyOCs">
+                        <tr><td colspan="4" class="text-center text-muted py-3">Seleccione un proveedor</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Renglones + PIMs + panel de ingreso ────────────────────────────── -->
+    <div class="col-12 col-lg-9">
+
+        <div class="card mb-3">
+            <div class="card-header py-1 d-flex justify-content-between align-items-center">
+                <span class="small fw-bold">
+                    <i class="fas fa-boxes me-1"></i>Renglones pendientes
+                    <span id="lblOC" class="text-muted ms-1"></span>
+                </span>
+                <span id="cntRenglones" class="badge bg-secondary"></span>
+            </div>
+            <div class="card-body p-0" style="max-height:260px; overflow:auto;">
+                <table class="table table-sm tbl-ing mb-0" style="min-width:640px">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th style="width:40px">#</th>
+                            <th style="width:90px">Código</th>
+                            <th>Material</th>
+                            <th style="width:60px">Unid.</th>
+                            <th style="width:80px" class="text-end">Pedido</th>
+                            <th style="width:80px" class="text-end">Ingresado</th>
+                            <th style="width:80px" class="text-end">Resta</th>
+                            <th style="width:70px" class="text-center">PIM</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bodyRenglones">
+                        <tr><td colspan="8" class="text-center text-muted py-3">Seleccione una OC</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <!-- PIMs del renglón -->
+            <div class="col-12 col-xl-6">
+                <div class="card h-100">
+                    <div class="card-header py-1">
+                        <span class="small fw-bold"><i class="fas fa-clipboard-list me-1"></i>Pedidos internos (PIM) del renglón</span>
+                    </div>
+                    <div class="card-body p-0" style="max-height:220px; overflow:auto;">
+                        <table class="table table-sm tbl-ing mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>PIM</th><th>Ítem</th><th>Sector</th>
+                                    <th class="text-end">Pedido</th>
+                                    <th class="text-end">Ingresado</th>
+                                    <th class="text-end">Resta</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bodyPIMs">
+                                <tr><td colspan="6" class="text-center text-muted py-3">Seleccione un renglón</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de ingreso -->
+            <div class="col-12 col-xl-6">
+                <div class="ing-panel p-3 h-100" id="panelIngreso">
+                    <div id="peBanner" class="pe-banner mb-2 d-none">PROYECTO ESPECIAL</div>
+                    <div class="mb-2">
+                        <div class="dato-label">Producto</div>
+                        <div class="dato-val" id="dProducto">—</div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-4">
+                            <div class="dato-label">Total OC</div>
+                            <div class="dato-val" id="dTotalOC">—</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="dato-label">Ya ingresado compra</div>
+                            <div class="dato-val" id="dIngOC">—</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="dato-label">Ya ingresado sector</div>
+                            <div class="dato-val" id="dIngPIM">—</div>
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <div class="dato-label">Sector destino</div>
+                            <div class="dato-val" id="dSector">—</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="dato-label">OC / PIM</div>
+                            <div class="dato-val" id="dRefs">—</div>
+                        </div>
+                    </div>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-7">
+                            <label class="dato-label" for="txtCantidad">Ingreso al sector</label>
+                            <input type="number" step="0.01" min="0" id="txtCantidad"
+                                   class="form-control inp-ingreso" disabled>
+                            <div class="small text-muted mt-1" id="dMaximo"></div>
+                        </div>
+                        <div class="col-5">
+                            <button id="btnSubir" class="btn btn-primary w-100 fw-bold py-2" disabled
+                                    onclick="subirIngreso()">
+                                <i class="fas fa-upload me-1"></i>SUBIR
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historial de ingresos de la OC -->
+        <div class="card mt-3">
+            <div class="card-header py-1 d-flex justify-content-between align-items-center"
+                 role="button" data-bs-toggle="collapse" data-bs-target="#colHist">
+                <span class="small fw-bold"><i class="fas fa-history me-1"></i>Ingresos ya registrados de esta OC</span>
+                <span id="cntHist" class="badge bg-secondary"></span>
+            </div>
+            <div id="colHist" class="collapse">
+                <div class="card-body p-0" style="max-height:220px; overflow:auto;">
+                    <table class="table table-sm tbl-ing mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr><th>Reng.</th><th>Ing.</th><th>Material</th>
+                                <th class="text-end">Cantidad</th><th>Comprobante</th><th>Fecha</th></tr>
+                        </thead>
+                        <tbody id="bodyHist">
+                            <tr><td colspan="6" class="text-center text-muted py-3">—</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modal: nuevo comprobante ─────────────────────────────────────────── -->
+<div class="modal fade" id="modalComp" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="fas fa-file-invoice me-1"></i>Nuevo comprobante</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    <label class="form-label small mb-1">Proveedor</label>
+                    <input type="text" id="mProveedor" class="form-control form-control-sm" disabled>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-7">
+                        <label class="form-label small mb-1">Factura / Remito</label>
+                        <input type="text" id="mNumero" maxlength="14" class="form-control form-control-sm"
+                               placeholder="Ej: 0001-00012345">
+                    </div>
+                    <div class="col-5">
+                        <label class="form-label small mb-1">Fecha</label>
+                        <input type="date" id="mFecha" class="form-control form-control-sm" value="{{ hoy }}">
+                    </div>
+                </div>
+                <div class="row g-2">
+                    <div class="col-4">
+                        <label class="form-label small mb-1">Sub-total</label>
+                        <input type="number" step="0.01" id="mSubtotal" placeholder="0,00"
+                               class="form-control form-control-sm text-end" oninput="calcTotalComp()">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label small mb-1">Impuestos</label>
+                        <input type="number" step="0.01" id="mImpuestos" placeholder="0,00"
+                               class="form-control form-control-sm text-end" oninput="calcTotalComp()">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label small mb-1">Total</label>
+                        <input type="text" id="mTotal" value="0,00"
+                               class="form-control form-control-sm text-end fw-bold" disabled>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-sm btn-primary" onclick="guardarComprobante()">
+                    <i class="fas fa-save me-1"></i>Aceptar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast de feedback -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="toastIng" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMsg"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let proveedorActivo = null;   // id
+let ocActiva        = null;   // id
+let renglonActivo   = null;   // objeto renglón (con .pims)
+let pimActivo       = null;   // objeto PIM
+let toastBS         = null;
+let silenciarProv   = false;  // evita recargar al cambiar el combo por código
+
+const fmt = v => parseFloat(v || 0).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const r2  = v => Math.round(parseFloat(v || 0) * 100) / 100;
+
+document.addEventListener('DOMContentLoaded', function() {
+    toastBS = new bootstrap.Toast(document.getElementById('toastIng'), {delay: 3500});
+
+    $('#cboProveedor').select2({
+        placeholder: '— Busque proveedor —',
+        allowClear: true, width: '100%'
+    }).on('change', function() {
+        if (!silenciarProv) seleccionarProveedor(this.value || null);
+    });
+
+    document.getElementById('cboComprobante').addEventListener('change', actualizarBotones);
+    document.getElementById('txtCantidad').addEventListener('input', actualizarBotones);
+    document.getElementById('txtBuscarOC').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') buscarOC();
+    });
+    document.getElementById('modalComp').addEventListener('shown.bs.modal', () =>
+        document.getElementById('mNumero').focus());
+    document.querySelectorAll('input[type=number]').forEach(i =>
+        i.addEventListener('focus', () => i.select()));
+    document.getElementById('modalComp').addEventListener('show.bs.modal', function() {
+        const sel = $('#cboProveedor').find(':selected').text();
+        document.getElementById('mProveedor').value = sel.replace(/\s*\(\d+ OC\)$/, '');
+        document.getElementById('mNumero').value = '';
+        document.getElementById('mSubtotal').value = '';
+        document.getElementById('mImpuestos').value = '';
+        calcTotalComp();
+    });
+});
+
+function toast(msg, ok) {
+    const el = document.getElementById('toastIng');
+    el.className = 'toast align-items-center text-white border-0 ' + (ok ? 'bg-success' : 'bg-danger');
+    document.getElementById('toastMsg').textContent = msg;
+    toastBS.show();
+}
+
+function getJSON(url) {
+    return fetch(url).then(r => r.json());
+}
+
+function postJSON(url, body) {
+    return fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+    }).then(r => r.json()).catch(() => ({ok: false, msg: 'Error de conexión'}));
+}
+
+// ── Proveedor ─────────────────────────────────────────────────────────────────
+function seleccionarProveedor(id, ocASeleccionar, renglonPrevio, pimPrevio) {
+    const nuevo = id ? parseInt(id) : null;
+    // mismo proveedor (refresco): conserva el remito elegido para seguir ingresando
+    const compPrevio = nuevo === proveedorActivo ? document.getElementById('cboComprobante').value : null;
+    proveedorActivo = nuevo;
+    limpiarOC();
+    const body = document.getElementById('bodyOCs');
+    if (!proveedorActivo) {
+        body.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Seleccione un proveedor</td></tr>';
+        document.getElementById('cntOCs').textContent = '';
+        cargarComprobantes();
+        return;
+    }
+    cargarComprobantes(compPrevio);
+    getJSON('/almacenes/ingreso/ocs/' + proveedorActivo).then(function(data) {
+        document.getElementById('cntOCs').textContent = data.length;
+        body.innerHTML = '';
+        if (!data.length) {
+            body.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Sin OC pendientes</td></tr>';
+            return;
+        }
+        data.forEach(function(oc) {
+            const tr = document.createElement('tr');
+            tr.className = 'clickable';
+            tr.dataset.id = oc.idpedidoreal;
+            tr.innerHTML =
+                '<td><strong>' + oc.idpedidoreal + '</strong></td>' +
+                '<td>' + esc(oc.fecha) + '</td>' +
+                '<td class="text-end">' + fmt(oc.total) + '</td>' +
+                '<td class="text-center">' + badgeEstado(oc.estado) + '</td>';
+            tr.addEventListener('click', () => seleccionarOC(oc.idpedidoreal));
+            body.appendChild(tr);
+        });
+        if (ocASeleccionar) seleccionarOC(ocASeleccionar, renglonPrevio, pimPrevio);
+    });
+}
+
+function badgeEstado(e) {
+    e = parseInt(e);
+    if (e === 22) return '<span class="badge bg-info text-dark" title="Ingresada parcialmente">Parc.</span>';
+    if (e === 23) return '<span class="badge bg-success">Total</span>';
+    return '<span class="badge bg-warning text-dark" title="Pendiente de ingreso">Pend.</span>';
+}
+
+// ── Comprobantes ──────────────────────────────────────────────────────────────
+function cargarComprobantes(seleccionar) {
+    const sel = document.getElementById('cboComprobante');
+    const btn = document.getElementById('btnNuevoComp');
+    if (!proveedorActivo) {
+        sel.innerHTML = '<option value="">— Elija proveedor —</option>';
+        sel.disabled = btn.disabled = true;
+        actualizarBotones();
+        return;
+    }
+    sel.disabled = btn.disabled = false;
+    getJSON('/almacenes/ingreso/comprobantes/' + proveedorActivo).then(function(data) {
+        sel.innerHTML = '<option value="">— Seleccione comprobante —</option>' +
+            data.map(c => '<option value="' + c.idcomprobante + '">' +
+                           esc(c.comprobante) + ' — ' + esc(c.fecha) + '</option>').join('');
+        if (seleccionar) sel.value = seleccionar;
+        actualizarBotones();
+    });
+}
+
+function calcTotalComp() {
+    const t = r2(document.getElementById('mSubtotal').value) + r2(document.getElementById('mImpuestos').value);
+    document.getElementById('mTotal').value = fmt(t);
+}
+
+function guardarComprobante() {
+    postJSON('/almacenes/ingreso/comprobante', {
+        proveedor:   proveedorActivo,
+        comprobante: document.getElementById('mNumero').value,
+        fecha:       document.getElementById('mFecha').value,
+        subtotal:    document.getElementById('mSubtotal').value,
+        impuestos:   document.getElementById('mImpuestos').value
+    }).then(function(res) {
+        toast(res.msg, res.ok);
+        if (!res.ok) return;
+        bootstrap.Modal.getInstance(document.getElementById('modalComp')).hide();
+        cargarComprobantes(res.idcomprobante);
+    });
+}
+
+// ── Buscar OC por número ──────────────────────────────────────────────────────
+function buscarOC() {
+    const id = parseInt(document.getElementById('txtBuscarOC').value);
+    if (!id) return;
+    getJSON('/almacenes/ingreso/oc/' + id).then(function(res) {
+        if (!res.ok) { toast(res.msg, false); return; }
+        if (parseInt(res.oc.estado) >= 23) {
+            toast('La OC ' + id + ' ya no tiene ingresos pendientes', false);
+            return;
+        }
+        const idProv = String(res.oc.idproveedor);
+        if (String(proveedorActivo) === idProv) { seleccionarOC(id); return; }
+        silenciarProv = true;
+        $('#cboProveedor').val(idProv).trigger('change');
+        silenciarProv = false;
+        seleccionarProveedor(idProv, id);
+    });
+}
+
+// ── OC ────────────────────────────────────────────────────────────────────────
+function limpiarOC() {
+    ocActiva = null;
+    document.getElementById('lblOC').textContent = '';
+    document.getElementById('cntRenglones').textContent = '';
+    document.getElementById('bodyRenglones').innerHTML =
+        '<tr><td colspan="8" class="text-center text-muted py-3">Seleccione una OC</td></tr>';
+    document.getElementById('cntHist').textContent = '';
+    document.getElementById('bodyHist').innerHTML =
+        '<tr><td colspan="6" class="text-center text-muted py-3">—</td></tr>';
+    limpiarRenglon();
+}
+
+function seleccionarOC(id, renglonPrevio, pimPrevio) {
+    limpiarOC();
+    ocActiva = parseInt(id);
+    document.querySelectorAll('#bodyOCs tr').forEach(tr =>
+        tr.classList.toggle('selected', parseInt(tr.dataset.id) === ocActiva));
+
+    getJSON('/almacenes/ingreso/oc/' + ocActiva).then(function(res) {
+        if (!res.ok) { toast(res.msg, false); return; }
+        document.getElementById('lblOC').textContent = '— OC ' + ocActiva;
+        cargarRenglones(res.renglones, renglonPrevio, pimPrevio);
+        cargarHistorial(res.ingresos);
+        actualizarBotones();
+    });
+}
+
+function cargarRenglones(data, renglonPrevio, pimPrevio) {
+    const body = document.getElementById('bodyRenglones');
+    document.getElementById('cntRenglones').textContent = data.length;
+    body.innerHTML = '';
+    if (!data.length) {
+        body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">Sin renglones pendientes</td></tr>';
+        return;
+    }
+    data.forEach(function(r) {
+        const sinPim = !r.pims.length;
+        const tr = document.createElement('tr');
+        tr.className = sinPim ? 'disabled' : 'clickable';
+        tr.dataset.renglon = r.renglon;
+        tr.title = sinPim ? 'Renglón sin PIM asociado — no se puede ingresar' : '';
+        tr.innerHTML =
+            '<td>' + r.renglon + '</td>' +
+            '<td class="font-monospace">' + esc(r.cd1) + '-' + esc(r.cd2) + '</td>' +
+            '<td>' + esc(r.material) + '</td>' +
+            '<td>' + esc(r.unidad) + '</td>' +
+            '<td class="text-end">' + fmt(r.cantidad) + '</td>' +
+            '<td class="text-end">' + fmt(r.cantidadingresada) + '</td>' +
+            '<td class="text-end resta">' + fmt(r.cantidad - r.cantidadingresada) + '</td>' +
+            '<td class="text-center">' + (sinPim
+                ? '<span class="badge bg-light text-muted border">Sin PIM</span>'
+                : '<span class="badge bg-primary text-white">' + r.pims.length + '</span>') + '</td>';
+        if (!sinPim) tr.addEventListener('click', () => seleccionarRenglon(r, tr));
+        body.appendChild(tr);
+        if (renglonPrevio != null && r.renglon === renglonPrevio && !sinPim) {
+            seleccionarRenglon(r, tr, pimPrevio);
+        }
+    });
+    if (!renglonActivo) {
+        const primero = data.findIndex(r => r.pims.length);
+        if (primero >= 0) seleccionarRenglon(data[primero], body.children[primero]);
+    }
+}
+
+function cargarHistorial(data) {
+    const body = document.getElementById('bodyHist');
+    document.getElementById('cntHist').textContent = data.length;
+    if (!data.length) {
+        body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Sin ingresos previos</td></tr>';
+        return;
+    }
+    body.innerHTML = data.map(h =>
+        '<tr><td>' + h.renglon + '</td><td>' + h.ingreso + '</td><td>' + esc(h.material) + '</td>' +
+        '<td class="text-end">' + fmt(h.cantidadingresada) + '</td>' +
+        '<td>' + esc(h.comprobante) + '</td><td>' + esc(h.fecha) + '</td></tr>').join('');
+}
+
+// ── Renglón → PIMs ────────────────────────────────────────────────────────────
+function limpiarRenglon() {
+    renglonActivo = null;
+    document.getElementById('bodyPIMs').innerHTML =
+        '<tr><td colspan="6" class="text-center text-muted py-3">Seleccione un renglón</td></tr>';
+    limpiarPanel();
+}
+
+function seleccionarRenglon(r, tr, pimPrevio) {
+    document.querySelectorAll('#bodyRenglones tr').forEach(x => x.classList.remove('selected'));
+    tr.classList.add('selected');
+    renglonActivo = r;
+    limpiarPanel();
+
+    const body = document.getElementById('bodyPIMs');
+    body.innerHTML = '';
+    let aSeleccionar = null;
+    r.pims.forEach(function(p, i) {
+        const t = document.createElement('tr');
+        t.className = 'clickable';
+        t.innerHTML =
+            '<td><strong>' + p.idpedidovirtual + '</strong>' +
+                (p.idproyectoespecial ? ' <span class="badge" style="background:#6f42c1">PE</span>' : '') + '</td>' +
+            '<td>' + p.renglon + '</td>' +
+            '<td>' + esc(p.jefatura) + '</td>' +
+            '<td class="text-end">' + fmt(p.cantidad) + '</td>' +
+            '<td class="text-end">' + fmt(p.cantidadingresada) + '</td>' +
+            '<td class="text-end resta">' + fmt(p.cantidad - p.cantidadingresada) + '</td>';
+        t.addEventListener('click', () => seleccionarPIM(p, t));
+        body.appendChild(t);
+        if (i === 0 || (pimPrevio && p.idpedidovirtual + '-' + p.renglon === pimPrevio)) {
+            aSeleccionar = [p, t];
+        }
+    });
+    // como FoxPro: al elegir renglón queda seleccionado el primer PIM
+    if (aSeleccionar) seleccionarPIM(aSeleccionar[0], aSeleccionar[1]);
+}
+
+// ── PIM → panel de ingreso ────────────────────────────────────────────────────
+function limpiarPanel() {
+    pimActivo = null;
+    ['dProducto','dTotalOC','dIngOC','dIngPIM','dSector','dRefs'].forEach(id =>
+        document.getElementById(id).textContent = '—');
+    document.getElementById('dMaximo').textContent = '';
+    document.getElementById('peBanner').classList.add('d-none');
+    const inp = document.getElementById('txtCantidad');
+    inp.value = ''; inp.disabled = true;
+    actualizarBotones();
+}
+
+function maximoIngreso() {
+    if (!renglonActivo || !pimActivo) return 0;
+    // FoxPro: MIN(lo que resta de la OC, lo que resta del PIM)
+    return r2(Math.min(renglonActivo.cantidad - renglonActivo.cantidadingresada,
+                       pimActivo.cantidad - pimActivo.cantidadingresada));
+}
+
+function seleccionarPIM(p, tr) {
+    document.querySelectorAll('#bodyPIMs tr').forEach(x => x.classList.remove('selected'));
+    tr.classList.add('selected');
+    pimActivo = p;
+    const r = renglonActivo;
+
+    document.getElementById('dProducto').textContent = r.cd1 + '-' + r.cd2 + '  ' + r.material;
+    document.getElementById('dTotalOC').textContent  = fmt(r.cantidad);
+    document.getElementById('dIngOC').textContent    = fmt(r.cantidadingresada);
+    document.getElementById('dIngPIM').textContent   = fmt(p.cantidadingresada);
+    document.getElementById('dSector').textContent   = p.jefatura || p.sector;
+    document.getElementById('dRefs').textContent     = ocActiva + ' / ' + p.idpedidovirtual;
+    document.getElementById('peBanner').classList.toggle('d-none', !p.idproyectoespecial);
+
+    const max = maximoIngreso();
+    const inp = document.getElementById('txtCantidad');
+    inp.disabled = false;
+    inp.max   = max;
+    inp.value = max;   // pone para ingresar lo que resta, como FoxPro
+    document.getElementById('dMaximo').textContent = 'Máximo: ' + fmt(max);
+    actualizarBotones();
+    inp.focus(); inp.select();
+}
+
+function actualizarBotones() {
+    const comp = document.getElementById('cboComprobante').value;
+    const cant = r2(document.getElementById('txtCantidad').value);
+    document.getElementById('btnSubir').disabled   = !(pimActivo && comp && cant > 0 && cant <= maximoIngreso());
+    document.getElementById('btnSubirOC').disabled = !(ocActiva && comp);
+}
+
+// ── Acciones ──────────────────────────────────────────────────────────────────
+function subirIngreso() {
+    const cant = r2(document.getElementById('txtCantidad').value);
+    const comp = document.getElementById('cboComprobante');
+    if (!comp.value) { toast("Debe elegir la factura / remito", false); return; }
+    if (cant <= 0)   { toast("Debe haber alguna cantidad en 'Ingreso al sector'", false); return; }
+    if (cant > maximoIngreso()) { toast('La cantidad supera el máximo permitido', false); return; }
+
+    const btn = document.getElementById('btnSubir');
+    btn.disabled = true;
+    postJSON('/almacenes/ingreso/subir', {
+        id_oc:          ocActiva,
+        renglon_oc:     renglonActivo.renglon,
+        id_pim:         pimActivo.idpedidovirtual,
+        renglon_pim:    pimActivo.renglon,
+        cantidad:       cant,
+        id_comprobante: parseInt(comp.value)
+    }).then(function(res) {
+        toast(res.msg, res.ok);
+        if (res.ok) refrescarTodo(); else actualizarBotones();
+    });
+}
+
+function subirOCCompleta() {
+    const comp = document.getElementById('cboComprobante');
+    if (!ocActiva || !comp.value) return;
+    const txtComp = comp.options[comp.selectedIndex].text;
+    if (!confirm('¿Ingresar la OC ' + ocActiva + ' COMPLETA con el comprobante ' + txtComp + '?\n\n' +
+                 'Se ingresan todos los renglones por su cantidad total y se actualiza el stock de cada sector.')) return;
+
+    document.getElementById('btnSubirOC').disabled = true;
+    postJSON('/almacenes/ingreso/subir_oc', {
+        id_oc: ocActiva, id_comprobante: parseInt(comp.value)
+    }).then(function(res) {
+        toast(res.msg, res.ok);
+        if (res.ok) refrescarTodo(); else actualizarBotones();
+    });
+}
+
+// recarga la lista de OCs manteniendo la OC/renglón/PIM seleccionados si siguen pendientes
+function refrescarTodo() {
+    const oc   = ocActiva;
+    const reng = renglonActivo ? renglonActivo.renglon : null;
+    const pim  = pimActivo ? pimActivo.idpedidovirtual + '-' + pimActivo.renglon : null;
+    getJSON('/almacenes/ingreso/ocs/' + proveedorActivo).then(function(data) {
+        const sigue = data.some(x => x.idpedidoreal === oc);
+        seleccionarProveedor(proveedorActivo, sigue ? oc : null, reng, pim);
+    });
+}
+</script>
+{% endblock %}

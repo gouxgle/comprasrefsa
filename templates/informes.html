@@ -1,0 +1,436 @@
+{% extends "base.html" %}
+
+{% block title %}Almacenes — Informes{% endblock %}
+
+{% block extra_css %}
+<style>
+.tbl-inf td, .tbl-inf th { font-size:.78rem; vertical-align:middle; white-space:nowrap; }
+.tbl-inf td.wrap { white-space:normal; min-width:220px; }
+.tbl-inf tbody tr { cursor:pointer; }
+.tbl-inf tbody tr:hover td { background:#e9f0ff; }
+.tbl-inf tbody tr.selected td { background:#d4edda !important; }
+
+.inf-panel { background:#f8f9fa; border:1px solid #dee2e6; border-radius:.5rem; padding:.75rem; }
+.inf-panel .grupo { border-bottom:1px dashed #dee2e6; padding:.4rem 0; }
+.inf-panel .grupo:last-of-type { border-bottom:0; }
+.inf-panel .form-check-label, .inf-panel .titulo {
+    font-size:.72rem; text-transform:uppercase; letter-spacing:.03em; color:#495057; font-weight:600; }
+.inf-panel .tipos .form-check-label { text-transform:none; font-size:.82rem; letter-spacing:0; }
+.deshab { opacity:.45; pointer-events:none; }
+
+.select2-container--default .select2-selection--single {
+    height:27px; border:1px solid #ced4da; border-radius:.25rem; font-size:.82rem; }
+.select2-container--default .select2-selection--single .select2-selection__rendered { line-height:25px; padding-left:.5rem; }
+.select2-container--default .select2-selection--single .select2-selection__arrow { height:25px; }
+.select2-results__option { font-size:.82rem; }
+.card-header .badge { color:#fff; }
+.card-header .badge:empty { display:none; }
+.med-bar { background:#f5f9ff; border:1px solid #cfe0f7; border-radius:.5rem; padding:.5rem .75rem; }
+.med-bar .titulo { font-size:.72rem; text-transform:uppercase; color:#0d47a1; font-weight:700; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% include '_almacenes_tabs.html' %}
+
+<div class="row g-3">
+    <!-- ── Grilla ─────────────────────────────────────────────────────────── -->
+    <div class="col-12 col-xl-9 order-2 order-xl-1">
+        <div class="card">
+            <div class="card-header py-1 d-flex justify-content-between align-items-center">
+                <span class="small fw-bold" id="titulo"><i class="fas fa-chart-bar me-1"></i>Informe</span>
+                <span id="cnt" class="badge bg-secondary"></span>
+            </div>
+            <div id="avisoTrunc" class="alert alert-warning py-1 px-2 m-2 small d-none">
+                Se muestran las primeras 3000 filas. Afine los filtros o use "A Excel" para ver todo.
+            </div>
+            <div class="card-body p-0" style="height:560px; overflow:auto;">
+                <table class="table table-sm tbl-inf mb-0" id="tbl">
+                    <thead class="table-light sticky-top"></thead>
+                    <tbody><tr><td class="text-center text-muted py-5">
+                        Elija el tipo de informe y los filtros, y presione <strong>Ver</strong>
+                    </td></tr></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="small text-muted mt-1">
+            Doble clic en una fila: filtra el informe por ese material.
+        </div>
+
+        <!-- Medidores -->
+        <div class="med-bar mt-2">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <span class="titulo"><i class="fas fa-tachometer-alt me-1"></i>Medidores</span>
+                <button class="btn btn-sm btn-outline-primary" onclick="verMedidores()"
+                        title="Retiros de medidores con los filtros de sector, material, fechas y empleado (quién pidió)">
+                    Retiros de medidores
+                </button>
+                <div class="input-group input-group-sm" style="width:auto">
+                    <input type="text" id="mSerie" class="form-control" placeholder="N° de medidor" style="width:140px">
+                    <button class="btn btn-outline-primary" onclick="buscarMedidor()">Buscar un medidor</button>
+                </div>
+                <div class="input-group input-group-sm" style="width:auto">
+                    <input type="text" id="mDesde" class="form-control" placeholder="Desde" style="width:110px">
+                    <input type="text" id="mHasta" class="form-control" placeholder="Hasta" style="width:110px">
+                    <button class="btn btn-outline-primary" onclick="buscarRango()">Buscar en rango</button>
+                </div>
+                <button class="btn btn-sm btn-outline-primary" id="btnMedRetiro" disabled onclick="medidoresRetiro()">
+                    Ver medidores del retiro
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Panel de filtros ───────────────────────────────────────────────── -->
+    <div class="col-12 col-xl-3 order-1 order-xl-2">
+        <div class="inf-panel">
+            <div class="grupo tipos">
+                <div class="titulo mb-1">Informe de</div>
+                <div class="d-flex flex-wrap gap-3">
+                    {% for v, t in [('pim','P.I.M.'),('retiro','Retiro'),('transfer','Transferencia'),('stock','Stock')] %}
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="radio" name="modo" id="modo_{{ v }}" value="{{ v }}" {{ 'checked' if v == 'pim' }}>
+                        <label class="form-check-label" for="modo_{{ v }}">{{ t }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div id="bloqueStockOp" class="d-none mt-1 ms-1">
+                    <div class="form-check mb-0"><input class="form-check-input" type="radio" name="stockop" id="so_rm" value="rm" checked>
+                        <label class="form-check-label" for="so_rm">Con material: R.M. faltan retirar</label></div>
+                    <div class="form-check mb-0"><input class="form-check-input" type="radio" name="stockop" id="so_oc" value="oc">
+                        <label class="form-check-label" for="so_oc">Con material: O.C. faltan ingresar</label></div>
+                </div>
+            </div>
+
+            <div class="grupo" id="gDistrito">
+                <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="chkDistrito">
+                    <label class="form-check-label" for="chkDistrito">Distrito</label></div>
+                <select id="fDistrito" class="form-select form-select-sm">
+                    <option value=""></option>
+                    {% for d in distritos %}<option value="{{ d.id }}">{{ d.nombre }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="grupo">
+                <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="chkSector">
+                    <label class="form-check-label" for="chkSector">Sector</label></div>
+                <select id="fSector" class="form-select form-select-sm">
+                    <option value=""></option>
+                    {% for s in sectores %}<option value="{{ s.id }}">{{ s.id }} — {{ s.nombre | upper }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="grupo" id="gPersona">
+                <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="chkPersona">
+                    <label class="form-check-label" for="chkPersona" id="lblPersona">Proveedor</label></div>
+                <select id="fPersona" class="form-select form-select-sm"></select>
+            </div>
+            <div class="grupo">
+                <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="chkMaterial">
+                    <label class="form-check-label" for="chkMaterial">Material</label></div>
+                <select id="fMaterial" class="form-select form-select-sm"></select>
+            </div>
+            <div class="grupo" id="gDestino">
+                <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="chkDestino">
+                    <label class="form-check-label" for="chkDestino">Destino <span class="text-muted text-lowercase">(solo transferencias)</span></label></div>
+                <select id="fDestino" class="form-select form-select-sm">
+                    <option value=""></option>
+                    {% for s in sectores %}<option value="{{ s.id }}">{{ s.id }} — {{ s.nombre | upper }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="grupo" id="gFechas">
+                <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="chkFechas">
+                    <label class="form-check-label" for="chkFechas">Entre fechas</label></div>
+                <div class="d-flex gap-1 mb-1">
+                    <input type="date" id="fDesde" class="form-control form-control-sm" value="{{ hace_un_anio }}">
+                    <button class="btn btn-sm btn-outline-secondary px-2" onclick="hoy('fDesde')">Hoy</button>
+                </div>
+                <div class="d-flex gap-1">
+                    <input type="date" id="fHasta" class="form-control form-control-sm" value="{{ hoy }}">
+                    <button class="btn btn-sm btn-outline-secondary px-2" onclick="hoy('fHasta')">Hoy</button>
+                </div>
+            </div>
+            <div class="grupo" id="gEstado">
+                <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="chkEstado">
+                    <label class="form-check-label" for="chkEstado">Estado</label></div>
+                <select id="fEstado" class="form-select form-select-sm">
+                    <option value="">— Seleccione —</option>
+                    {% for e in estados %}<option value="{{ e.id }}">{{ e.id }} — {{ e.nombre }}</option>{% endfor %}
+                </select>
+                <div class="d-flex gap-3 mt-1" id="bloquePO">
+                    <div class="form-check mb-0"><input class="form-check-input" type="radio" name="po" id="po_pim" value="pim" checked>
+                        <label class="form-check-label" for="po_pim">de P.I.M.</label></div>
+                    <div class="form-check mb-0"><input class="form-check-input" type="radio" name="po" id="po_oc" value="oc">
+                        <label class="form-check-label" for="po_oc">de O.C.</label></div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-1 mt-2">
+                <button class="btn btn-primary btn-sm flex-fill fw-bold" onclick="ver()"><i class="fas fa-eye me-1"></i>Ver</button>
+                <button class="btn btn-success btn-sm" id="btnExcel" disabled onclick="excel()"><i class="fas fa-file-excel me-1"></i>A Excel</button>
+            </div>
+            <button class="btn btn-outline-danger btn-sm w-100 mt-1" id="btnBaja" disabled onclick="darDeBaja()">
+                <i class="fas fa-ban me-1"></i>Dar de baja el renglón seleccionado
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: baja completa o solo renglón (FoxPro: "Desea dar de baja al PIM completo?") -->
+<div class="modal fade" id="modalBaja" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2"><h6 class="modal-title"><i class="fas fa-ban me-1 text-danger"></i>Dar de baja</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body small" id="bajaTexto"></div>
+            <div class="modal-footer py-2">
+                <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-sm btn-outline-danger" id="btnBajaRenglon" onclick="confirmarBaja(false)">Solo el renglón</button>
+                <button class="btn btn-sm btn-danger" id="btnBajaCompleto" onclick="confirmarBaja(true)">Pedido completo</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="toastInf" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMsg"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const HOY = '{{ hoy }}';
+const TITULOS = {pim: 'Informe de P.I.M.', retiro: 'Informe de retiros', transfer: 'Informe de transferencias',
+                 stock: 'Informe de stock'};
+let ultimaUrl = null, ultimoModo = null, filaSel = null, toastBS = null, modalBaja = null;
+
+const fmt = v => (v == null || v === '') ? '' :
+    parseFloat(v).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const modo = () => document.querySelector('input[name=modo]:checked').value;
+const chk  = id => document.getElementById(id).checked;
+
+function toast(msg, ok) {
+    const el = document.getElementById('toastInf');
+    el.className = 'toast align-items-center text-white border-0 ' + (ok ? 'bg-success' : 'bg-danger');
+    document.getElementById('toastMsg').textContent = msg;
+    toastBS.show();
+}
+
+function ajaxSelect2(sel, urlFn, placeholder) {
+    return $(sel).select2({
+        placeholder: placeholder, allowClear: true, width: '100%', minimumInputLength: 2,
+        language: { inputTooShort: () => 'Escriba al menos 2 letras', noResults: () => 'Sin resultados',
+                    searching: () => 'Buscando…' },
+        ajax: { url: urlFn, delay: 300, data: p => ({q: p.term}), processResults: d => d }
+    });
+}
+
+// FoxPro: al elegir un valor se tilda su casilla (InteractiveChange → check = 1)
+function tildarAlElegir(sel, chkId) {
+    $(sel).on('change', function() { document.getElementById(chkId).checked = !!$(this).val(); });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    toastBS = new bootstrap.Toast(document.getElementById('toastInf'), {delay: 3500});
+    modalBaja = new bootstrap.Modal(document.getElementById('modalBaja'));
+    $('#fSector').select2({placeholder: '— Sector —', allowClear: true, width: '100%'});
+    $('#fDestino').select2({placeholder: '— Sector destino —', allowClear: true, width: '100%'});
+    ajaxSelect2('#fMaterial', '/almacenes/buscar/materiales', '— Código o descripción —');
+    ajaxSelect2('#fPersona', () => modo() === 'pim' ? '/almacenes/buscar/proveedores' : '/almacenes/buscar/personal',
+                '— Buscar —');
+    [['#fSector', 'chkSector'], ['#fDestino', 'chkDestino'], ['#fMaterial', 'chkMaterial'],
+     ['#fPersona', 'chkPersona'], ['#fDistrito', 'chkDistrito'], ['#fEstado', 'chkEstado']]
+        .forEach(([s, c]) => tildarAlElegir(s, c));
+    ['fDesde', 'fHasta'].forEach(id => document.getElementById(id).addEventListener('change',
+        () => document.getElementById('chkFechas').checked = true));
+    document.querySelectorAll('input[name=modo]').forEach(r => r.addEventListener('change', cambiarModo));
+    document.getElementById('mSerie').addEventListener('keydown', e => { if (e.key === 'Enter') buscarMedidor(); });
+    cambiarModo();
+});
+
+function hoy(id) {
+    document.getElementById(id).value = HOY;
+    document.getElementById('chkFechas').checked = true;
+}
+
+// Optiongroup1.InteractiveChange
+function cambiarModo() {
+    const m = modo();
+    const persona = {pim: 'Proveedor', retiro: 'Empleado (quién retiró)'}[m];
+    document.getElementById('lblPersona').textContent = persona || 'Proveedor / Empleado';
+    if ($('#fPersona').val()) $('#fPersona').val(null).trigger('change');   // cambia la tabla de búsqueda
+    document.getElementById('gPersona').classList.toggle('deshab', !persona);
+    document.getElementById('gDestino').classList.toggle('deshab', m !== 'transfer');
+    document.getElementById('gEstado').classList.toggle('deshab', m === 'transfer' || m === 'stock');
+    document.getElementById('bloquePO').classList.toggle('d-none', m !== 'pim');
+    document.getElementById('gFechas').classList.toggle('deshab', m === 'stock');
+    document.getElementById('gDistrito').classList.toggle('deshab', m === 'stock');
+    document.getElementById('bloqueStockOp').classList.toggle('d-none', m !== 'stock');
+}
+
+function filtros() {
+    const m = modo(), f = {modo: m};
+    if (chk('chkDistrito') && $('#fDistrito').val() !== '' && m !== 'stock') f.distrito = $('#fDistrito').val();
+    if ((chk('chkSector') || m === 'stock') && $('#fSector').val()) f.sector = $('#fSector').val();
+    if (chk('chkPersona') && $('#fPersona').val()) f.persona = $('#fPersona').val();
+    if (chk('chkMaterial') && $('#fMaterial').val()) {
+        const [c1, c2] = $('#fMaterial').val().split('-'); f.cd1 = c1; f.cd2 = c2;
+    }
+    if (chk('chkDestino') && $('#fDestino').val()) f.destino = $('#fDestino').val();
+    if (chk('chkFechas')) {
+        const d = document.getElementById('fDesde').value, h = document.getElementById('fHasta').value;
+        if (d && h) { f.desde = d; f.hasta = h; }
+    }
+    if (chk('chkEstado') && $('#fEstado').val()) f.estado = $('#fEstado').val();
+    f.po = document.querySelector('input[name=po]:checked').value;
+    f.stockop = document.querySelector('input[name=stockop]:checked').value;
+    return f;
+}
+
+// ── Carga genérica de la grilla ──────────────────────────────────────────────
+function cargar(url, titulo, modoResultado) {
+    const tbody = document.querySelector('#tbl tbody');
+    tbody.innerHTML = '<tr><td class="text-center text-muted py-5"><i class="fas fa-spinner fa-spin me-1"></i>Consultando…</td></tr>';
+    return fetch(url).then(r => r.json()).then(function(res) {
+        if (!res.ok) { toast(res.msg, false); tbody.innerHTML = ''; return; }
+        ultimaUrl = url; ultimoModo = modoResultado; filaSel = null;
+        document.getElementById('titulo').innerHTML = '<i class="fas fa-chart-bar me-1"></i>' + esc(titulo);
+        document.getElementById('avisoTrunc').classList.toggle('d-none', !res.truncado);
+        document.getElementById('btnExcel').disabled = !res.filas.length;
+        pintar(res);
+        actualizarBotones();
+    }).catch(() => { toast('Error de conexión', false); tbody.innerHTML = ''; });
+}
+
+function celda(v, tipo) {
+    if (tipo === 'n') return '<td class="text-end">' + fmt(v) + '</td>';
+    if (tipo === 'c') return '<td class="text-center">' + esc(v) + '</td>';
+    return '<td class="' + (String(v || '').length > 40 ? 'wrap' : '') + '">' + esc(v) + '</td>';
+}
+
+function pintar(res) {
+    const t = document.getElementById('tbl');
+    t.querySelector('thead').innerHTML = '<tr>' + res.cols.map(c =>
+        '<th class="' + (c.tipo === 'n' ? 'text-end' : c.tipo === 'c' ? 'text-center' : '') + '">' +
+        esc(c.titulo) + '</th>').join('') + '</tr>';
+    document.getElementById('cnt').textContent = res.filas.length + (res.truncado ? '+' : '');
+    const tbody = t.querySelector('tbody');
+    if (!res.filas.length) {
+        tbody.innerHTML = '<tr><td colspan="' + res.cols.length + '" class="text-center text-muted py-5">Sin resultados</td></tr>';
+        return;
+    }
+    const frag = document.createDocumentFragment();
+    res.filas.forEach(function(f) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = res.cols.map(c => celda(f[c.key], c.tipo)).join('');
+        tr.addEventListener('click', function() {
+            tbody.querySelectorAll('tr.selected').forEach(x => x.classList.remove('selected'));
+            tr.classList.add('selected');
+            filaSel = f;
+            actualizarBotones();
+        });
+        tr.addEventListener('dblclick', () => filtrarPorMaterial(f));
+        frag.appendChild(tr);
+    });
+    tbody.innerHTML = '';
+    tbody.appendChild(frag);
+}
+
+function idRetiroSel() {
+    if (!filaSel) return null;
+    if (filaSel.idretiro) return filaSel.idretiro;
+    return ultimoModo === 'retiro' ? filaSel.id : null;
+}
+
+function actualizarBotones() {
+    document.getElementById('btnBaja').disabled = !(filaSel && (ultimoModo === 'pim' || ultimoModo === 'retiro'));
+    document.getElementById('btnMedRetiro').disabled = !idRetiroSel();
+}
+
+// ── Acciones ─────────────────────────────────────────────────────────────────
+function ver() {
+    const f = filtros();
+    if (f.modo === 'stock' && !f.sector) { toast('Seleccione un sector', false); return; }
+    let titulo = TITULOS[f.modo];
+    if (f.modo === 'stock' && f.cd1) titulo += f.stockop === 'oc' ? ' — O.C. faltan ingresar' : ' — R.M. faltan retirar';
+    cargar('/almacenes/informes/ver?' + new URLSearchParams(f), titulo, f.modo);
+}
+
+// Grid1.DblClick: tilda Material con el de la fila y vuelve a ejecutar "Ver"
+function filtrarPorMaterial(f) {
+    if (!f.cd1 || !f.cd2) return;
+    const id = f.cd1 + '-' + f.cd2;
+    const opt = new Option(id + '  ' + (f.material || ''), id, true, true);
+    $('#fMaterial').empty().append(opt).trigger('change');
+    document.getElementById('chkMaterial').checked = true;
+    if (ultimoModo && ultimoModo !== 'medidores') ver();
+}
+
+function excel() {
+    if (ultimaUrl) window.location = ultimaUrl + (ultimaUrl.includes('?') ? '&' : '?') + 'formato=csv';
+}
+
+function verMedidores() {
+    const f = filtros();
+    const p = {};
+    ['sector', 'cd1', 'cd2', 'desde', 'hasta', 'persona'].forEach(k => { if (f[k]) p[k] = f[k]; });
+    cargar('/almacenes/informes/medidores?' + new URLSearchParams(p), 'Retiros de medidores', 'medidores');
+}
+
+function buscarMedidor() {
+    const s = document.getElementById('mSerie').value.trim();
+    if (!s) { toast('Ingrese el número de medidor', false); return; }
+    cargar('/almacenes/informes/medidor?serie=' + encodeURIComponent(s), 'Retiro del medidor ' + s, 'medidores');
+}
+
+function buscarRango() {
+    const d = document.getElementById('mDesde').value.trim(), h = document.getElementById('mHasta').value.trim();
+    if (!d || !h) { toast('Ingrese el medidor inicial y el final del rango', false); return; }
+    cargar('/almacenes/informes/medidores_rango?' + new URLSearchParams({desde: d, hasta: h}),
+           'Medidores entre ' + d + ' y ' + h, 'medidores');
+}
+
+function medidoresRetiro() {
+    const id = idRetiroSel();
+    if (!id) { toast('No hay retiro seleccionado', false); return; }
+    cargar('/almacenes/informes/medidores_retiro/' + id, 'Medidores del retiro ' + id, 'medidores');
+}
+
+// ── Dar de baja ──────────────────────────────────────────────────────────────
+let bajaPendiente = null;
+
+function darDeBaja() {
+    if (!filaSel) return;
+    const q = {modo: ultimoModo, id: filaSel.id, renglon: filaSel.renglon};
+    fetch('/almacenes/informes/baja?' + new URLSearchParams(q)).then(r => r.json()).then(function(res) {
+        if (!res.ok) { toast(res.msg, false); return; }
+        if (!res.completo && !res.renglon) { toast(res.msg_no, false); return; }
+        bajaPendiente = q;
+        const que = ultimoModo === 'pim' ? 'P.I.M.' : 'retiro';
+        document.getElementById('bajaTexto').innerHTML =
+            '¿Seguro desea dar de baja el ' + que + ' <strong>' + q.id + '</strong>' +
+            (res.completo ? '? Puede dar de baja el pedido completo o solo el renglón ' + q.renglon + '.'
+                          : ', renglón <strong>' + q.renglon + '</strong>?');
+        document.getElementById('btnBajaCompleto').classList.toggle('d-none', !res.completo);
+        document.getElementById('btnBajaRenglon').classList.toggle('d-none', !res.renglon);
+        modalBaja.show();
+    });
+}
+
+function confirmarBaja(completo) {
+    modalBaja.hide();
+    fetch('/almacenes/informes/baja', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(Object.assign({completo: completo}, bajaPendiente))
+    }).then(r => r.json()).catch(() => ({ok: false, msg: 'Error de conexión'})).then(function(res) {
+        toast(res.msg, res.ok);
+        if (res.ok && ultimaUrl) cargar(ultimaUrl, document.getElementById('titulo').textContent, ultimoModo);
+    });
+}
+</script>
+{% endblock %}

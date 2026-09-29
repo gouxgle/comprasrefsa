@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+
+{% block title %}Almacenes — Movimientos{% endblock %}
+
+{% block extra_css %}
+<style>
+.tbl-mov td, .tbl-mov th { font-size:.78rem; vertical-align:middle; white-space:nowrap; }
+.tbl-mov td.wrap { white-space:normal; min-width:220px; }
+.tbl-mov tbody tr.clickable { cursor:pointer; }
+.tbl-mov tbody tr.clickable:hover td { background:#e9f0ff; }
+.tbl-mov tbody tr.selected td { background:#d4edda !important; }
+
+.filtros { background:#f8f9fa; border:1px solid #dee2e6; border-radius:.5rem; padding:.75rem 1rem; }
+.filtros .form-check-label { font-size:.72rem; text-transform:uppercase; letter-spacing:.03em;
+                             color:#495057; font-weight:600; }
+.select2-container--default .select2-selection--single {
+    height:27px; border:1px solid #ced4da; border-radius:.25rem; font-size:.85rem; }
+.select2-container--default .select2-selection--single .select2-selection__rendered { line-height:25px; padding-left:.6rem; }
+.select2-container--default .select2-selection--single .select2-selection__arrow { height:25px; }
+.select2-results__option { font-size:.85rem; }
+.card-header .badge { color:#fff; }
+.card-header .badge:empty { display:none; }
+
+.btn-consulta.active { background:#0d47a1; color:#fff; border-color:#0d47a1; }
+.totales { display:flex; gap:1rem; flex-wrap:wrap; }
+.totales .tot { background:#f5f9ff; border:1px solid #cfe0f7; border-radius:.4rem; padding:.3rem .8rem; }
+.totales .tot-l { font-size:.68rem; text-transform:uppercase; color:#6c757d; }
+.totales .tot-v { font-weight:700; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% include '_almacenes_tabs.html' %}
+
+<!-- ── Filtros ──────────────────────────────────────────────────────────── -->
+<div class="filtros mb-2">
+    <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="form-check mb-1">
+                <input class="form-check-input" type="checkbox" id="chkSector">
+                <label class="form-check-label" for="chkSector">Sector</label>
+            </div>
+            <select id="fSector" class="form-select form-select-sm">
+                <option value=""></option>
+                {% for s in sectores %}<option value="{{ s.id }}">{{ s.nombre | upper }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-12 col-md-6 col-xl-4">
+            <div class="form-check mb-1">
+                <input class="form-check-input" type="checkbox" id="chkMaterial">
+                <label class="form-check-label" for="chkMaterial">Material</label>
+            </div>
+            <select id="fMaterial" class="form-select form-select-sm"></select>
+        </div>
+        <div class="col-12 col-md-8 col-xl-5">
+            <div class="form-check mb-1">
+                <input class="form-check-input" type="checkbox" id="chkFecha">
+                <label class="form-check-label" for="chkFecha">Fecha (solo "desde" = ese día)</label>
+            </div>
+            <div class="d-flex gap-1 align-items-center">
+                <input type="date" id="fDesde" class="form-control form-control-sm">
+                <button class="btn btn-sm btn-outline-secondary px-2" onclick="hoy('fDesde')">Hoy</button>
+                <span class="text-muted">—</span>
+                <input type="date" id="fHasta" class="form-control form-control-sm">
+                <button class="btn btn-sm btn-outline-secondary px-2" onclick="hoy('fHasta')">Hoy</button>
+            </div>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-1 mt-2 align-items-center">
+        <button class="btn btn-sm btn-outline-primary btn-consulta" data-tipo="stock"><i class="fas fa-boxes me-1"></i>Stock</button>
+        <div class="form-check mb-0 me-2" title="Solo para Stock: agrega las O.C. sin ingresar">
+            <input class="form-check-input" type="checkbox" id="chkFalta">
+            <label class="form-check-label" for="chkFalta">Con falta entregar</label>
+        </div>
+        <button class="btn btn-sm btn-outline-primary btn-consulta" data-tipo="ingresos"><i class="fas fa-sign-in-alt me-1"></i>Ingresos</button>
+        <button class="btn btn-sm btn-outline-primary btn-consulta" data-tipo="ingresos_material"><i class="fas fa-cubes me-1"></i>Ingresos material</button>
+        <button class="btn btn-sm btn-outline-primary btn-consulta" data-tipo="salidas"><i class="fas fa-sign-out-alt me-1"></i>Salidas</button>
+        <button class="btn btn-sm btn-outline-primary btn-consulta" data-tipo="salidas_material"><i class="fas fa-dolly me-1"></i>Salidas material</button>
+        <button class="btn btn-sm btn-outline-primary btn-consulta" data-tipo="devoluciones"><i class="fas fa-undo-alt me-1"></i>Devoluciones</button>
+        <button class="btn btn-sm btn-success ms-auto" id="btnExcel" disabled onclick="excel(consultaActual)">
+            <i class="fas fa-file-excel me-1"></i>A Excel
+        </button>
+    </div>
+</div>
+
+<div id="totales" class="totales mb-2 d-none"></div>
+<div id="avisoTrunc" class="alert alert-warning py-1 px-2 mb-2 small d-none">
+    Se muestran las primeras 3000 filas. Use los filtros o exporte a Excel para ver todo.
+</div>
+
+<div class="row g-3">
+    <div class="col-12" id="colPrincipal">
+        <div class="card">
+            <div class="card-header py-1 d-flex justify-content-between align-items-center">
+                <span class="small fw-bold" id="tituloPrincipal">Resultado</span>
+                <span id="cntPrincipal" class="badge bg-secondary"></span>
+            </div>
+            <div class="card-body p-0" id="scrollPrincipal" style="max-height:560px; overflow:auto;">
+                <table class="table table-sm tbl-mov mb-0" id="tblPrincipal">
+                    <thead class="table-light sticky-top"></thead>
+                    <tbody><tr><td class="text-center text-muted py-4">Elija los filtros y una consulta</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 d-none" id="colDetalle">
+        <div class="card">
+            <div class="card-header py-1 d-flex justify-content-between align-items-center">
+                <span class="small fw-bold" id="tituloDetalle">Detalle</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span id="cntDetalle" class="badge bg-secondary"></span>
+                    <button class="btn btn-sm btn-outline-success py-0 px-2" id="btnExcelDet" disabled
+                            onclick="excel(detalleTipo, {id: detalleId})" title="Detalle a Excel">
+                        <i class="fas fa-file-excel"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0" style="max-height:560px; overflow:auto;">
+                <table class="table table-sm tbl-mov mb-0" id="tblDetalle">
+                    <thead class="table-light sticky-top"></thead>
+                    <tbody><tr><td class="text-center text-muted py-4">Seleccione una fila</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="toastMov" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMsg"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const HOY = '{{ hoy }}';
+const TITULOS = {
+    stock: 'Stock del sector', stock_oc: 'Stock del sector con O.C. sin ingresar',
+    ingresos: 'Ingresos (por pedido y comprobante)', ingresos_material: 'Ingresos de material',
+    salidas: 'Salidas (retiros)', salidas_material: 'Salidas de material', devoluciones: 'Devoluciones',
+    ingresos_det: 'Ingresos del pedido', salidas_det: 'Ítems del retiro'
+};
+let consultaActual = null, filtrosActuales = null, detalleTipo = null, detalleId = null, toastBS = null;
+
+const fmt = v => (v == null || v === '') ? '' :
+    parseFloat(v).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function toast(msg, ok) {
+    const el = document.getElementById('toastMov');
+    el.className = 'toast align-items-center text-white border-0 ' + (ok ? 'bg-success' : 'bg-danger');
+    document.getElementById('toastMsg').textContent = msg;
+    toastBS.show();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    toastBS = new bootstrap.Toast(document.getElementById('toastMov'), {delay: 3500});
+    $('#fSector').select2({placeholder: '— Sector —', allowClear: true, width: '100%'})
+        .on('change', function() { document.getElementById('chkSector').checked = !!this.value; });
+    $('#fMaterial').select2({
+        placeholder: '— Código o descripción —', allowClear: true, width: '100%', minimumInputLength: 2,
+        language: { inputTooShort: () => 'Escriba al menos 2 letras', noResults: () => 'Sin resultados',
+                    searching: () => 'Buscando…' },
+        ajax: { url: '/almacenes/buscar/materiales', delay: 300, data: p => ({q: p.term}), processResults: d => d }
+    }).on('change', function() { document.getElementById('chkMaterial').checked = !!this.value; });
+    ['fDesde', 'fHasta'].forEach(id => document.getElementById(id).addEventListener('change',
+        () => { if (document.getElementById('fDesde').value) document.getElementById('chkFecha').checked = true; }));
+    document.querySelectorAll('.btn-consulta').forEach(b =>
+        b.addEventListener('click', () => consultar(b.dataset.tipo, b)));
+    // FoxPro: tildar "Con falta entregar" vuelve a ejecutar Stock
+    document.getElementById('chkFalta').addEventListener('change', function() {
+        if (consultaActual === 'stock' || consultaActual === 'stock_oc') consultar('stock');
+    });
+});
+
+function hoy(id) {
+    document.getElementById(id).value = HOY;
+    document.getElementById('chkFecha').checked = true;
+}
+
+function filtros() {
+    const f = {};
+    if (document.getElementById('chkSector').checked && $('#fSector').val()) f.sector = $('#fSector').val();
+    if (document.getElementById('chkMaterial').checked && $('#fMaterial').val()) {
+        const [c1, c2] = $('#fMaterial').val().split('-'); f.cd1 = c1; f.cd2 = c2;
+    }
+    if (document.getElementById('chkFecha').checked) {
+        const d = document.getElementById('fDesde').value, h = document.getElementById('fHasta').value;
+        if (d) f.desde = d;
+        if (d && h) f.hasta = h;
+    }
+    return f;
+}
+
+function consultar(tipo, btn) {
+    if (tipo === 'stock' && document.getElementById('chkFalta').checked) tipo = 'stock_oc';
+    if (tipo.startsWith('stock') && !$('#fSector').val()) { toast('Ingrese un sector', false); return; }
+    const f = filtros();
+    if (tipo.startsWith('stock')) f.sector = $('#fSector').val();   // Stock siempre usa el combo
+    document.querySelectorAll('.btn-consulta').forEach(b =>
+        b.classList.toggle('active', b.dataset.tipo === (tipo.startsWith('stock') ? 'stock' : tipo)));
+
+    const tbody = document.querySelector('#tblPrincipal tbody');
+    tbody.innerHTML = '<tr><td class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-1"></i>Consultando…</td></tr>';
+    fetch('/almacenes/movimientos/consulta/' + tipo + '?' + new URLSearchParams(f))
+        .then(r => r.json()).then(function(res) {
+            if (!res.ok) { toast(res.msg, false); tbody.innerHTML = ''; return; }
+            consultaActual = tipo; filtrosActuales = f;
+            document.getElementById('btnExcel').disabled = !res.filas.length;
+            document.getElementById('tituloPrincipal').textContent = TITULOS[tipo];
+            document.getElementById('avisoTrunc').classList.toggle('d-none', !res.truncado);
+            pintarTotales(res.totales);
+            // maestro-detalle (Ingresos / Salidas): maestro más bajo y detalle debajo, ambos a lo ancho
+            const md = !!res.detalle;
+            document.getElementById('scrollPrincipal').style.maxHeight = md ? '330px' : '560px';
+            document.getElementById('colDetalle').classList.toggle('d-none', !md);
+            limpiarDetalle();
+            pintar('tblPrincipal', 'cntPrincipal', res, md ? fila => verDetalle(res.detalle, fila, res) : null);
+        }).catch(() => { toast('Error de conexión', false); tbody.innerHTML = ''; });
+}
+
+function celda(v, tipo) {
+    if (tipo === 'n') return '<td class="text-end">' + fmt(v) + '</td>';
+    if (tipo === 'c') return '<td class="text-center">' + esc(v) + '</td>';
+    return '<td class="' + (String(v || '').length > 30 ? 'wrap' : '') + '">' + esc(v) + '</td>';
+}
+
+function pintar(tabla, contador, res, onClick) {
+    const t = document.getElementById(tabla);
+    t.querySelector('thead').innerHTML = '<tr>' + res.cols.map(c =>
+        '<th class="' + (c.tipo === 'n' ? 'text-end' : c.tipo === 'c' ? 'text-center' : '') + '">' +
+        esc(c.titulo) + '</th>').join('') + '</tr>';
+    const tbody = t.querySelector('tbody');
+    document.getElementById(contador).textContent = res.filas.length + (res.truncado ? '+' : '');
+    if (!res.filas.length) {
+        tbody.innerHTML = '<tr><td colspan="' + res.cols.length + '" class="text-center text-muted py-4">Sin resultados</td></tr>';
+        return;
+    }
+    const frag = document.createDocumentFragment();
+    res.filas.forEach(function(f) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = res.cols.map(c => celda(f[c.key], c.tipo)).join('');
+        if (onClick) {
+            tr.className = 'clickable';
+            tr.addEventListener('click', function() {
+                tbody.querySelectorAll('tr.selected').forEach(x => x.classList.remove('selected'));
+                tr.classList.add('selected');
+                onClick(f);
+            });
+        }
+        frag.appendChild(tr);
+    });
+    tbody.innerHTML = '';
+    tbody.appendChild(frag);
+}
+
+function limpiarDetalle() {
+    detalleTipo = detalleId = null;
+    document.getElementById('btnExcelDet').disabled = true;
+    document.getElementById('cntDetalle').textContent = '';
+    document.getElementById('tituloDetalle').textContent = 'Detalle';
+    const t = document.getElementById('tblDetalle');
+    t.querySelector('thead').innerHTML = '';
+    t.querySelector('tbody').innerHTML = '<tr><td class="text-center text-muted py-4">Seleccione una fila</td></tr>';
+}
+
+// Grid1.Click: ingresos → por idpedidovirtual; salidas → por idretiro
+function verDetalle(tipoDet, fila) {
+    const id = tipoDet === 'ingresos_det' ? fila.idpedidovirtual : fila.idretiro;
+    fetch('/almacenes/movimientos/consulta/' + tipoDet + '?id=' + id).then(r => r.json()).then(function(res) {
+        if (!res.ok) { toast(res.msg, false); return; }
+        detalleTipo = tipoDet; detalleId = id;
+        document.getElementById('btnExcelDet').disabled = !res.filas.length;
+        document.getElementById('tituloDetalle').textContent = TITULOS[tipoDet] + ' ' + id;
+        pintar('tblDetalle', 'cntDetalle', res, null);
+    });
+}
+
+function pintarTotales(tot) {
+    const el = document.getElementById('totales');
+    el.classList.toggle('d-none', !tot);
+    if (!tot) return;
+    el.innerHTML = tot.map(t => '<div class="tot"><div class="tot-l">' + esc(t.label) +
+                                '</div><div class="tot-v">' + fmt(t.valor) + '</div></div>').join('');
+}
+
+function excel(tipo, extra) {
+    if (!tipo) return;
+    const params = new URLSearchParams(extra || filtrosActuales || {});
+    window.location = '/almacenes/movimientos/excel/' + tipo + '?' + params;
+}
+</script>
+{% endblock %}

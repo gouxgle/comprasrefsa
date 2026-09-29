@@ -174,10 +174,18 @@
                 <i class="fas fa-print"></i>Imprimir<br>Vales
             </a>
         </li>
+        {% if puede_autorizar %}
+        <li>
+            <a href="{{ url_for('autorizaciones.panel') }}"
+               class="{{ 'active' if (request.endpoint or '').startswith('autorizaciones.') else '' }}">
+                <i class="fas fa-file-signature"></i>Autorizaciones
+            </a>
+        </li>
+        {% endif %}
         {% if session.get('tipo','')[:1].upper() in ('N','M','A','J') %}
         <li>
             <a href="{{ url_for('almacenes.panel') }}"
-               class="{{ 'active' if request.endpoint == 'almacenes.panel' else '' }}">
+               class="{{ 'active' if (request.endpoint or '').startswith(('almacenes.', 'ingreso.', 'devoluciones.', 'movimientos.', 'informes.')) else '' }}">
                 <i class="fas fa-warehouse"></i>Almacenes
             </a>
         </li>
