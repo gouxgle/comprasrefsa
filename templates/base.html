@@ -132,7 +132,7 @@
 <!-- ── Top Navbar ──────────────────────────────────────────────── -->
 <nav class="tnav">
 
-    <a class="tnav-brand" href="{{ url_for('menu_bp.menu_principal') }}">
+    <a class="tnav-brand" href="{{ url_for('autorizaciones.panel') if solo_autorizaciones else url_for('menu_bp.menu_principal') }}">
         <img src="{{ url_for('static', filename='Logo_REFSA.jpg') }}"
              alt="REFSA" height="44" style="border-radius:6px;flex-shrink:0">
         <div>
@@ -142,6 +142,15 @@
     </a>
 
     <ul class="tnav-links">
+        {# Perfil "solo Autorizaciones" (SOLO_AUTORIZACIONES en .env) #}
+        {% if solo_autorizaciones %}
+        <li>
+            <a href="{{ url_for('autorizaciones.panel') }}"
+               class="{{ 'active' if (request.endpoint or '').startswith('autorizaciones.') else '' }}">
+                <i class="fas fa-file-signature"></i>Autorizaciones
+            </a>
+        </li>
+        {% else %}
         <li>
             <a href="{{ url_for('menu_bp.menu_principal') }}"
                class="{{ 'active' if request.endpoint == 'menu_bp.menu_principal' else '' }}">
@@ -189,6 +198,7 @@
                 <i class="fas fa-warehouse"></i>Almacenes
             </a>
         </li>
+        {% endif %}
         {% endif %}
     </ul>
 

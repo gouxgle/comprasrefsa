@@ -58,10 +58,36 @@ app.register_blueprint(informes_bp)
 app.register_blueprint(autorizaciones_bp)
 
 
+# Operarios que solo usan Autorizaciones (reemplaza el ejecutable independiente permisos.exe).
+# Se configura en .env: SOLO_AUTORIZACIONES=703,704   (703 = QUIROS JULIO)
+SOLO_AUTORIZACIONES = {x.strip() for x in os.environ.get('SOLO_AUTORIZACIONES', '703').split(',') if x.strip()}
+_PERMITIDOS_SOLO_AUT = ('autorizaciones.', 'login.', 'static')
+
+
+def solo_autorizaciones():
+    return str(session.get('id', '')) in SOLO_AUTORIZACIONES
+
+
+@app.before_request
+def _restringir_solo_autorizaciones():
+    # Bloqueo del lado del servidor: aunque escriba otra URL, solo accede a Autorizaciones
+    if not solo_autorizaciones():
+        return None
+    endpoint = request.endpoint or ''
+    if endpoint == 'static' or endpoint.startswith(_PERMITIDOS_SOLO_AUT):
+        return None
+    # navegación del navegador → redirige; llamadas de datos (fetch/POST) → 403
+    # (fetch() manda Accept: */*; el navegador al navegar pide text/html explícitamente)
+    if request.method == 'GET' and 'text/html' in request.headers.get('Accept', ''):
+        return redirect(url_for('autorizaciones.panel'))
+    return jsonify({'ok': False, 'msg': 'Su usuario solo tiene acceso a Autorizaciones'}), 403
+
+
 @app.context_processor
 def _permisos_menu():
     # "Autorizaciones" solo aparece para los tipos habilitados en permisos.exe
-    return {'puede_autorizar': puede_autorizar() if 'id' in session else False}
+    return {'puede_autorizar': puede_autorizar() if 'id' in session else False,
+            'solo_autorizaciones': solo_autorizaciones()}
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)

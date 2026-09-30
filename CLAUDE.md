@@ -139,6 +139,7 @@ Al crear un retiro nuevo:
 - **Acceso:** solo operarios con tipo `A, A0, J0, J1, D0, C0, I0–I7` en `comun.asignaciones` (`TIPOS_HABILITADOS`). El ítem del menú superior sale del context processor `puede_autorizar` (cacheado en `session['aut_tipos']`). Con varios tipos elige con cuál trabaja (se propone primero el de gerencia)
 - **Tipo → alcance:** `tiposoperarios.idjefatura` = 1 (gerencia) → Pedidos / Retiros / Compras, autoriza con **4**; otra jefatura → Pedidos / Retiros de su subgerencia, autoriza con **3**. `autorizaciones`: 1 req. Sub-Gerencia, 2 req. Gerencia, 3/4 autorizado
 - **J1 (secretaría, ej. QUIROS JULIO 703):** debe elegir el gerente J0 que firmó → queda en `autorizadopor`. El FoxPro guardaba el nombre en un campo numérico (quedaba 0); acá se guarda el IdOperario
+- **Perfil "solo Autorizaciones":** los IdOperario de `SOLO_AUTORIZACIONES` (en `.env`, por defecto `703`) solo ven y acceden a Autorizaciones — `before_request` en `app.py` redirige toda otra página (Accept `text/html`) y devuelve 403 a las llamadas de datos. Reemplaza el uso del ejecutable independiente `permisos.exe`
 - Pedidos: `vpedidosvirtuales1` estado 0 · Retiros: `estado < 2` (con los estados actuales 30/32/39 la lista sale siempre vacía, igual que en FoxPro) · Compras: `vpedidosreales1 idautorizacion < 2`
 - Autorizar P.I.M. actualiza cabecera + detalles (+ P.E.); Compra pone `estado = 21` y `fechaautorizado`. El servidor revalida que siga pendiente y en el alcance del usuario
 
