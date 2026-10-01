@@ -241,6 +241,33 @@ def _pendiente(clase, id_pedido, ctx):
     return filas[0] if filas else None
 
 
+# Tabla/columnas de donde sale quién preparó (pidió) cada clase de pedido
+_PREPARO = {
+    'pim':    ('pedidosvirtuales', 'idpedidovirtual'),
+    'retiro': ('retiromateriales', 'idretiro'),
+    'compra': ('pedidosreales',    'idpedidoreal'),
+}
+
+
+def _resumen(clase, id_pedido, nivel, quien):
+    """Datos para el modal de confirmación: número, quién preparó el pedido y quién autorizó."""
+    tabla, clave = _PREPARO[clase]
+    cursor_almacenes.execute(
+        f"SELECT p.quienpidio, COALESCE(o.DescOperario, pe.nombre, '') "
+        f"FROM almacenes.{tabla} p "
+        f"LEFT JOIN comun.operarios o ON o.IdOperario = p.quienpidio "
+        f"LEFT JOIN comun.personal pe ON pe.idlegajo = p.quienpidio "
+        f"WHERE p.{clave} = %s", (id_pedido,))
+    row = cursor_almacenes.fetchone() or (None, '')
+    cursor_almacenes.execute(
+        "SELECT DescOperario FROM comun.operarios WHERE IdOperario = %s", (quien,))
+    aut = cursor_almacenes.fetchone()
+    return {'clase': clase, 'id': id_pedido,
+            'preparo_id': row[0], 'preparo': (row[1] or '').strip(),
+            'autorizo': (aut[0] if aut else '').strip(),
+            'nivel': 'Gerencia' if nivel == AUT_GERENCIA else 'Sub-Gerencia'}
+
+
 @autorizaciones_bp.route('/autorizaciones/autorizar', methods=['POST'])
 @autorizador_requerido
 def autorizar():
@@ -298,7 +325,7 @@ def autorizar():
                 "fechaautorizado = CURDATE() WHERE idpedidoreal = %s", (quien, nivel, id_pedido))
             texto = f'O.C. {id_pedido} autorizada'
         conn_almacenes.commit()
-        return jsonify({'ok': True, 'msg': texto})
+        return jsonify({'ok': True, 'msg': texto, 'resumen': _resumen(clase, id_pedido, nivel, quien)})
     except Exception as e:
         conn_almacenes.rollback()
         return jsonify({'ok': False, 'msg': f'No se pudo autorizar: {e}'}), 500

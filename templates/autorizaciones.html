@@ -117,6 +117,32 @@
 </div>
 <div class="small text-muted mt-1">Doble clic en un pedido: ver sus materiales · doble clic en el detalle: volver a la lista.</div>
 
+<!-- Modal de confirmación de autorización exitosa -->
+<div class="modal fade" id="modalOk" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white py-2">
+                <h6 class="modal-title"><i class="fas fa-check-circle me-2"></i>Autorización registrada</h6>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <div class="text-muted small text-uppercase" id="okTipo">P.I.M.</div>
+                    <div class="display-6 fw-bold" style="color:var(--refsa-blue);" id="okNumero"></div>
+                    <div class="text-success fw-semibold">autorizado correctamente</div>
+                </div>
+                <table class="table table-sm mb-0">
+                    <tr><th class="text-muted fw-normal" style="width:45%">Preparó</th><td class="fw-semibold" id="okPreparo"></td></tr>
+                    <tr><th class="text-muted fw-normal">Autorizó</th><td id="okAutorizo"></td></tr>
+                    <tr><th class="text-muted fw-normal">Nivel</th><td id="okNivel"></td></tr>
+                </table>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-success px-4" data-bs-dismiss="modal" id="btnOkCerrar">Aceptar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
     <div id="toastAut" class="toast align-items-center text-white border-0" role="alert">
         <div class="d-flex">
@@ -289,6 +315,19 @@ function actualizarBoton() {
         : (SECRETARIA && !document.getElementById('selGerente').value ? 'Ingrese el gerente que autorizó el pedido' : '');
 }
 
+// ── Modal de confirmación ────────────────────────────────────────────────────
+function mostrarOk(r) {
+    document.getElementById('okTipo').textContent = {pim: 'P.I.M. Nro', retiro: 'Retiro Nro', compra: 'O.C. Nro'}[r.clase];
+    document.getElementById('okNumero').textContent = r.id;
+    document.getElementById('okPreparo').textContent = r.preparo ? (r.preparo_id + ' — ' + r.preparo) : 'Sin dato';
+    document.getElementById('okAutorizo').textContent = r.autorizo;
+    document.getElementById('okNivel').textContent = r.nivel;
+    const m = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalOk'));
+    m.show();
+    document.getElementById('modalOk').addEventListener('shown.bs.modal',
+        () => document.getElementById('btnOkCerrar').focus(), {once: true});
+}
+
 // ── Command3 "Autorizar" ─────────────────────────────────────────────────────
 async function autorizar() {
     if (!seleccionado) return;
@@ -315,9 +354,9 @@ async function autorizar() {
         method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({clase: clase, id: id, gerente: gerente})
     }).then(r => r.json()).catch(() => ({ok: false, msg: 'Error de conexión'})).then(function(res) {
-        toast(res.msg, res.ok);
         document.getElementById('chkDetalles').checked = false;    // vuelve a la lista actualizada
         cargarLista();
+        if (res.ok && res.resumen) mostrarOk(res.resumen); else toast(res.msg, res.ok);
     });
 }
 </script>
