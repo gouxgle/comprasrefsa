@@ -15,3 +15,7 @@ hugo/
 # Editor
 .vscode/
 .idea/
+
+# Ejecutables FoxPro de referencia (traen la clave de MySQL embebida) y config local de Claude Code
+fox/
+.claude/
