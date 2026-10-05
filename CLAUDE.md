@@ -32,6 +32,7 @@ modulos/
   devoluciones.py       # Blueprint devoluciones — pestaña Devoluciones (Page10 FoxPro)
   movimientos.py        # Blueprint movimientos — pestaña Movimientos, solo consultas (Page11 FoxPro)
   buscar.py             # Blueprint buscar — búsquedas select2 de personal y materiales
+  modificar.py          # Blueprint modificar — modificar P.I.M. y vales de retiro ya generados
   autorizaciones.py     # Blueprint autorizaciones — autorización de pedidos firmados (permisos.exe)
   utils.py              # Decorador @login_requerido
 templates/              # Jinja2, extienden base.html (Bootstrap 5 + Font Awesome)
@@ -142,6 +143,12 @@ Al crear un retiro nuevo:
 - **Perfil "solo Autorizaciones":** los IdOperario de `SOLO_AUTORIZACIONES` (en `.env`, por defecto `703`) solo ven y acceden a Autorizaciones — `before_request` en `app.py` redirige toda otra página (Accept `text/html`) y devuelve 403 a las llamadas de datos. Reemplaza el uso del ejecutable independiente `permisos.exe`
 - Pedidos: `vpedidosvirtuales1` estado 0 · Retiros: `estado < 2` (con los estados actuales 30/32/39 la lista sale siempre vacía, igual que en FoxPro) · Compras: `vpedidosreales1 idautorizacion < 2`
 - Autorizar P.I.M. actualiza cabecera + detalles (+ P.E.); Compra pone `estado = 21` y `fechaautorizado`. El servidor revalida que siga pendiente y en el alcance del usuario
+
+### Modificar P.I.M. y vales de retiro (`modulos/modificar.py`, plantilla `modificar_pedido.html`)
+- **P.I.M.** (`/pim/modificar/<id>`, botón en *Estado de Pedidos → Pedido Interno*): solo quien lo generó, con `estado = 0`, **sin autorizar** (autorizacion 0/1/2), sin proyecto especial y sin renglones en el circuito de compras (pedido de precio / O.C. / ingresos / comparativas). Permite cambiar cantidades, cambiar/quitar/agregar materiales (del catálogo del sector del pedido) y editar comentarios. Renumera los renglones 1..n
+- **Vale de retiro** (`/retiro/modificar/<id>`, botones en *Estado de Pedidos → Retiro* y *Almacenes → MODIFICAR VALE*): quien lo generó o personal de Almacenes (`puede_almacenes`), vale en estado 30/31 y solo ítems **no entregados** (`estado = 30` y `cantidadretirada = 0`). Reducir/quitar siempre se permite (ajuste al stock real); **subir o agregar** valida el stock disponible (misma cuenta que al crear: stock − pedidos de vales abiertos) y deja el ítem con `autorizacion = 2`. No renumera si hay ítems entregados o referencias en medidores/precintos/devoluciones/cargos/rollos/formularios
+- Todo en una transacción con `FOR UPDATE` (el FoxPro usa las mismas tablas); el servidor revalida las reglas al abrir y al guardar. Cada cambio queda en el log de la app (`docker logs almacenes_web`: «P.I.M. N modificado por …»)
+- *Estado de Pedidos → Retiro* lista los **2000 ítems más recientes** con consulta directa (la vista `vdetallesretiromateriales2` tardaba >10 s y devolvía 75.000 filas)
 
 ## PDFs con ReportLab
 

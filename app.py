@@ -14,6 +14,7 @@ from modulos.movimientos import movimientos_bp
 from modulos.buscar import buscar_bp
 from modulos.informes import informes_bp
 from modulos.autorizaciones import autorizaciones_bp, puede_autorizar
+from modulos.modificar import modificar_bp
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'refsa_almacenes_2026')
@@ -56,6 +57,7 @@ app.register_blueprint(movimientos_bp)
 app.register_blueprint(buscar_bp)
 app.register_blueprint(informes_bp)
 app.register_blueprint(autorizaciones_bp)
+app.register_blueprint(modificar_bp)
 
 
 # Operarios que solo usan Autorizaciones (reemplaza el ejecutable independiente permisos.exe).

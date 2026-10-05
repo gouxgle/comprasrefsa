@@ -212,6 +212,11 @@
             <i class="fas fa-hand-pointer me-1"></i>RETIRA ÍTEM
         </button>
 
+        <button id="btnModificarVale" class="btn-fox" onclick="accionModificarVale()"
+                title="Ajustar cantidades, quitar o agregar materiales del vale (solo ítems no entregados)">
+            <i class="fas fa-edit me-1"></i>MODIFICAR VALE
+        </button>
+
         <!-- Autorización -->
         <div class="panel-seccion">Autorización</div>
         <button id="btnAutorizaTodo" class="btn-fox success" onclick="accionAutorizarTodo()">
@@ -371,7 +376,7 @@ function seleccionarVale(tr) {
     var cerrado    = estadoVale === 32 || estadoVale === 37;
 
     // Deshabilitar botones de proceso para vales ya entregados o dados de baja
-    ['btnRetiraTodo','btnRetiraItem','btnAutorizaTodo','btnAutorizaItem'].forEach(function(id) {
+    ['btnRetiraTodo','btnRetiraItem','btnAutorizaTodo','btnAutorizaItem','btnModificarVale'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) { el.disabled = cerrado; el.style.opacity = cerrado ? '.4' : ''; }
     });
@@ -542,6 +547,11 @@ function accionAutorizarItem() {
     if (!idRetiroActivo || rengActivo === null) { toast('Seleccione un ítem', false); return; }
     _post('/almacenes/autorizar', {id_retiro: idRetiroActivo, renglon: rengActivo},
           recargarItems);
+}
+
+function accionModificarVale() {
+    if (!idRetiroActivo) { toast('Seleccione un vale', false); return; }
+    window.location.href = '/retiro/modificar/' + idRetiroActivo;
 }
 
 function accionImprimir() {

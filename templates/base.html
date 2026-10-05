@@ -173,7 +173,7 @@
         {% endif %}
         <li>
             <a href="{{ url_for('estado.estado_pedido') }}"
-               class="{{ 'active' if request.endpoint == 'estado.estado_pedido' else '' }}">
+               class="{{ 'active' if request.endpoint == 'estado.estado_pedido' or (request.endpoint or '').startswith('modificar.') else '' }}">
                 <i class="fas fa-search"></i>Estado de<br>Pedidos
             </a>
         </li>

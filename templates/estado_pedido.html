@@ -76,7 +76,7 @@
 const headersMap = {
     pim_lista:    ["Nro. PIM", "Fecha", "Ítems", "Acciones"],
     pim:          ["# PIM", "Material", "Cant. Pedida", "Fecha", "Estado", "Cant. Ingresada", "O.C.", "# O.C."],
-    retiro:       ["# R.M.", "Material", "Cant. Pedida", "F. Pedido", "Estado", "Cant. Entregada", "Entregado por", "Ítem"],
+    retiro:       ["# R.M.", "Material", "Cant. Pedida", "F. Pedido", "Estado", "Cant. Entregada", "Entregado por", "Ítem", "Acciones"],
     transferencia:["Material", "Cantidad"]
 };
 const camposMap = {
@@ -90,6 +90,15 @@ const titulosMap = {
     retiro:       "Retiros de Materiales",
     transferencia:"Transferencias"
 };
+
+// Botón "Modificar": link si corresponde; si no, deshabilitado con el motivo como ayuda
+function botonModificar(url, motivo) {
+    if (!motivo) {
+        return '<a href="' + url + '" class="btn btn-sm btn-outline-warning"><i class="fas fa-edit me-1"></i>Modificar</a>';
+    }
+    return '<span title="' + String(motivo).replace(/"/g, '&quot;') + '"><button type="button" class="btn btn-sm btn-outline-secondary" disabled>' +
+           '<i class="fas fa-edit me-1"></i>Modificar</button></span>';
+}
 
 document.getElementById('tipoPedido').addEventListener('change', function() {
     const tipo = this.value;
@@ -139,7 +148,8 @@ document.getElementById('tipoPedido').addEventListener('change', function() {
                         '<td><span class="badge bg-secondary">' + (row.total_items || 0) + ' ítem(s)</span></td>' +
                         '<td><a href="/imprimir_pim/' + row.idpedidovirtual + '" target="_blank" ' +
                         'class="btn btn-sm btn-outline-primary">' +
-                        '<i class="fas fa-print me-1"></i>Imprimir PDF</a></td>';
+                        '<i class="fas fa-print me-1"></i>Imprimir PDF</a> ' +
+                        botonModificar('/pim/modificar/' + row.idpedidovirtual, row.motivo) + '</td>';
                     tbody.appendChild(tr);
                 });
             } else {
@@ -150,6 +160,11 @@ document.getElementById('tipoPedido').addEventListener('change', function() {
                         td.textContent = row[campo] || '';
                         tr.appendChild(td);
                     });
+                    if (tipo === 'retiro') {
+                        var tdA = document.createElement('td');
+                        tdA.innerHTML = botonModificar('/retiro/modificar/' + row.nro_retiro, row.motivo);
+                        tr.appendChild(tdA);
+                    }
                     tbody.appendChild(tr);
                 });
             }
