@@ -13,6 +13,8 @@ conn, cursor = check_connection(conn, cursor, 'comun')
 @login_requerido
 def pedido_interno():
     if not puede_pim():
+        # FoxPro (pedidosv.scx): quien no es jefe solo puede retirar o transferir
+        flash('Los pedidos internos (P.I.M.) los generan los jefes de sector; su perfil solo puede hacer pedidos de retiro.', 'warning')
         return redirect(url_for('menu_bp.menu_principal'))
 
     global conn, cursor
@@ -133,6 +135,8 @@ def pedido_interno():
 @pedidos_bp.route('/buscar_materiales', methods=['POST'])
 @login_requerido
 def buscar_materiales():
+    if not puede_pim():
+        return jsonify([]), 403
     global conn, cursor
     conn, cursor = check_connection(conn, cursor, 'comun')
     try:

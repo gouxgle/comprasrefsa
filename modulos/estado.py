@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, session, jsonify
 from conexiones import conn_almacenes, cursor_almacenes, check_connection
-from modulos.utils import login_requerido, puede_almacenes
+from modulos.utils import pedidos_requerido as login_requerido, puede_almacenes
 from modulos.modificar import motivo_pim_no_modificable, puede_modificar_retiro
 from datetime import date
 from decimal import Decimal

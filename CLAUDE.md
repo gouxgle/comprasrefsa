@@ -49,7 +49,10 @@ static/                 # CSS (style.css) + Logo_REFSA.jpg
 | `session['usuario']` | str | Nombre de pantalla (DescOperario) |
 | `session['id']` | str | Legajo numérico (IdOperario) |
 | `session['id_sector']` | int | idjefatura del sector activo |
-| `session['sectores']` | list | `[{id, nombre}]` — para usuarios con múltiples sectores |
+| `session['tipos']` | list | Todos los tipos de `comun.asignaciones` del operario (ej. `['M0','N0','N1']`) |
+| `session['tipo_id']` | str | Tipo **activo** con el que ingresó (ej. `N1`) — define si puede retirar / hacer P.I.M. |
+| `session['sectores']` | list | Solo entre el login y la elección: `[{id, tipo_id, tipo, nombre}]` (se descarta al elegir) |
+| `session['tipo']` | str | `operarios.Tipo` heredado — **ya no se usa para permisos** |
 | `session['pedidos']` | list | Carrito temporal de PIM en curso |
 
 ---
@@ -114,6 +117,22 @@ Al crear un retiro nuevo:
 
 ---
 
+### Permisos (`modulos/permisos.py`) — réplica de la lógica del FoxPro
+Cada programa FoxPro tiene su `ingreso.scx` con una **lista blanca de tipos** de `comun.asignaciones` (no `operarios.Tipo`). Entra quien tenga *alguno* de esos tipos; si tiene varios elige con cuál trabaja (el perfil = sector + tipo, se elige en el login). Fuentes: `/home/sistemas/REFSA/almacenes/ALMACENES/**/ingreso.SCT` y `PEDIDOSV/pedidosv.SCT`.
+
+| Función web | Lista blanca (FoxPro) | Se evalúa sobre |
+|---|---|---|
+| **Almacenes** (pestañas Retiro, Ingreso, Devoluciones, Movimientos, Informes, Baja) | `A, A0, A1, M0, M1, N0, N1` (ALMACENES) | cualquier tipo asignado |
+| **Autorizaciones** | `A, A0, J0, J1, D0, C0, I0–I7` (permisos.exe) | cualquier tipo asignado |
+| **Retiro de Materiales** | lista PEDIDOSV (sectores + Interior `I0–I9`) | tipo **activo** |
+| **Pedido Interno (P.I.M.)** | lista PEDIDOSV **y jefe** | tipo **activo** |
+
+- **Jefe / empleado:** el último dígito del tipo marca el rol (`C0` jefe, `C1` empleado). `pedidosv.scx`: *"si no es jefe, solo puede retirar o transferir"* → los empleados solo hacen retiros; los jefes también P.I.M. Interior (`I*`) siempre es jefe. Los datos lo confirman: en 2 años nadie fuera de la regla creó un P.I.M.
+- Se compara el **tipo exacto** (el FoxPro usa `AT()` = subcadena, y tipos de una letra como `G`/`T` entraban "de casualidad" por ser subcadena de `G0`/`T0`). Sin tipo habilitado a nada → el login se rechaza
+- Gerencia (`J0/J1`) no está en Almacenes ni en pedidos de sector: solo Autorizaciones. `G`, `T`, `C2`, `C4`, `B2`… no están en ninguna lista
+- Decoradores en `utils.py`: `login_requerido` (exige `session['tipos']`: sesiones previas vuelven al login), `almacenes_requerido`, `pedidos_requerido` (Estado de Pedidos / Imprimir), `puede_retiro()`, `puede_pim()`. Las plantillas usan `cap.retiro / cap.pim / cap.almacenes / puede_autorizar`
+- No implementado (existe en el FoxPro): "Transferencia" entre sectores; pedidos reales/compras (PEDIDOSR: `A, A0, A1, B0, B1, B2`), control de compras y de pedidos de precio
+
 ### Ingreso de mercadería (`/almacenes/ingreso`) — réplica de Page2 de `fox/almacenes3.exe`
 - Flujo: Proveedor → OC pendientes (`pedidosreales.estado < 23`) → renglón (`detallespedidosreales`) → PIM (`detallespedidosvirtuales.ordendecompra/renglonodc`) → cantidad + comprobante
 - Comprobante = `almacenes.comprobantes` (factura/remito por proveedor); en `ingresospedidos*` y `movisproyectosespeciales` se guarda **idcomprobante**
@@ -146,7 +165,7 @@ Al crear un retiro nuevo:
 - Autorizar P.I.M. actualiza cabecera + detalles (+ P.E.); Compra pone `estado = 21` y `fechaautorizado`. El servidor revalida que siga pendiente y en el alcance del usuario
 
 ### Baja de materiales (`/almacenes/baja`, `modulos/baja.py`) — réplica de `fox/bajar.exe` + Materiales→Subir de `almacenes3.exe`
-- Acceso: tipos N, M, A, J (`almacenes_requerido`). `bajar.exe` no pedía usuario. Búsqueda por palabras (AND) o código `AL-24`, filtro por grupo (`cd1`) y estado; máx. 300 filas (la tabla tiene 14.600)
+- Acceso: personal de Almacenes (`almacenes_requerido`, ver *Permisos*). `bajar.exe` no pedía usuario. Búsqueda por palabras (AND) o código `AL-24`, filtro por grupo (`cd1`) y estado; máx. 300 filas (la tabla tiene 14.600)
 - **Renombrar:** `UPDATE materiales SET material`. No fuerza mayúsculas (como bajar.exe); el alta sí (como Page9). Avisa si ya hay otro material con ese nombre
 - **Stock / total / baja** (solo `materiales`, NO el stock por sector `materialesdesectores`): guarda solo lo que cambió y devuelve 409 si el valor en la base ya no es el que se cargó (bajar.exe "Dale a todo" reescribía las 14.600 filas pisando cambios ajenos). `stock` es unsigned (no admite negativos), `total` sí. Todo ajuste de stock/total exige motivo
 - **`baja` no es booleano:** 0 activo (hay 12.889), 1 de baja, 5/6/7/8 marcas de migración. El interruptor solo escribe 1 (dar de baja) o 0 (reactivar); si no se toca, la marca se conserva. El código previo queda en la auditoría

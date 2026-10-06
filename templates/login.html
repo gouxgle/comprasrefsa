@@ -99,8 +99,9 @@
                     <p class="text-muted mb-3">Su usuario tiene acceso a más de un sector. Seleccione con cuál desea ingresar:</p>
                     <div class="d-grid gap-2">
                         {% for sector in sectores %}
-                        <button class="btn btn-outline-primary btn-lg" onclick="seleccionarSector('{{ sector.id }}')">
+                        <button class="btn btn-outline-primary btn-lg" onclick="seleccionarSector('{{ sector.id }}', '{{ sector.tipo_id }}')">
                             <i class="fas fa-layer-group me-2"></i>{{ sector.nombre | upper }}
+                            <small class="d-block text-muted" style="font-size:.7rem">{{ sector.tipo }}</small>
                         </button>
                         {% endfor %}
                     </div>
@@ -109,11 +110,11 @@
         </div>
     </div>
     <script>
-        function seleccionarSector(id) {
+        function seleccionarSector(id, tipo) {
             fetch("/seleccionar_sector", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({ sector: id })
+                body: JSON.stringify({ sector: id, tipo: tipo })
             }).then(res => res.json()).then(data => {
                 if (data.status === 'ok') {
                     window.location.href = "{{ url_for('menu_bp.menu_principal') }}";

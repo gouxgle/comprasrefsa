@@ -29,14 +29,14 @@
 from functools import wraps
 from flask import Blueprint, render_template, session, jsonify, request, redirect, url_for, make_response
 from conexiones import conn_almacenes, cursor_almacenes, check_connection
+from modulos.permisos import TIPOS_AUTORIZAR
 from datetime import date
 from decimal import Decimal
 
 autorizaciones_bp = Blueprint('autorizaciones', __name__)
 
 # permisos.exe → Command1.Click del form "ingreso"
-TIPOS_HABILITADOS = ('A', 'A0', 'J0', 'J1', 'D0', 'C0',
-                     'I0', 'I1', 'I2', 'I3', 'I4', 'I5', 'I6', 'I7')
+TIPOS_HABILITADOS = tuple(sorted(TIPOS_AUTORIZAR))
 GERENCIA   = 1          # idjefatura de gerencia
 SECRETARIA = 'J1'       # autoriza en nombre de un gerente (J0)
 LIMITE     = 3000

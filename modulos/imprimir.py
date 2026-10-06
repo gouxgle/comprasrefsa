@@ -1,7 +1,7 @@
 # modulos/imprimir.py
 from flask import Blueprint, render_template, session, make_response, request
 from conexiones import cursor, check_connection, conn, conn_almacenes, cursor_almacenes
-from modulos.utils import login_requerido, puede_almacenes
+from modulos.utils import pedidos_requerido as login_requerido, puede_almacenes
 from io import BytesIO
 
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable, Image, KeepTogether

@@ -15,6 +15,7 @@ from modulos.buscar import buscar_bp
 from modulos.informes import informes_bp
 from modulos.autorizaciones import autorizaciones_bp, puede_autorizar
 from modulos.modificar import modificar_bp
+from modulos import permisos
 from modulos.baja import baja_bp
 
 app = Flask(__name__)
@@ -90,8 +91,12 @@ def _restringir_solo_autorizaciones():
 @app.context_processor
 def _permisos_menu():
     # "Autorizaciones" solo aparece para los tipos habilitados en permisos.exe
-    return {'puede_autorizar': puede_autorizar() if 'id' in session else False,
-            'solo_autorizaciones': solo_autorizaciones()}
+    logueado = 'id' in session and 'tipos' in session
+    return {'puede_autorizar': puede_autorizar() if logueado else False,
+            'solo_autorizaciones': solo_autorizaciones(),
+            # qué módulos ve: ver modulos/permisos.py
+            'cap': permisos.capacidades(session.get('tipos'), session.get('tipo_id')) if logueado
+                   else {'almacenes': False, 'autorizar': False, 'retiro': False, 'pim': False}}
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)

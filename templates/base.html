@@ -157,13 +157,15 @@
                 <i class="fas fa-home"></i>Inicio
             </a>
         </li>
+        {% if cap.retiro %}
         <li>
             <a href="{{ url_for('retiro.retiro_materiales') }}"
                class="{{ 'active' if request.endpoint == 'retiro.retiro_materiales' else '' }}">
                 <i class="fas fa-dolly"></i>Retiro de<br>Materiales
             </a>
         </li>
-        {% if session.get('tipo','')[:1].upper() not in ('N','M') %}
+        {% endif %}
+        {% if cap.pim %}
         <li>
             <a href="{{ url_for('pedidos.pedido_interno') }}"
                class="{{ 'active' if request.endpoint == 'pedidos.pedido_interno' else '' }}">
@@ -171,18 +173,22 @@
             </a>
         </li>
         {% endif %}
+        {% if cap.retiro or cap.pim %}
         <li>
             <a href="{{ url_for('estado.estado_pedido') }}"
                class="{{ 'active' if request.endpoint == 'estado.estado_pedido' or (request.endpoint or '').startswith('modificar.') else '' }}">
                 <i class="fas fa-search"></i>Estado de<br>Pedidos
             </a>
         </li>
+        {% endif %}
+        {% if cap.retiro or cap.pim or cap.almacenes %}
         <li>
             <a href="{{ url_for('imprimir.imprimir') }}"
                class="{{ 'active' if request.endpoint == 'imprimir.imprimir' else '' }}">
                 <i class="fas fa-print"></i>Imprimir<br>Vales
             </a>
         </li>
+        {% endif %}
         {% if puede_autorizar %}
         <li>
             <a href="{{ url_for('autorizaciones.panel') }}"
@@ -191,7 +197,7 @@
             </a>
         </li>
         {% endif %}
-        {% if session.get('tipo','')[:1].upper() in ('N','M','A','J') %}
+        {% if cap.almacenes %}
         <li>
             <a href="{{ url_for('almacenes.panel') }}"
                class="{{ 'active' if (request.endpoint or '').startswith(('almacenes.', 'ingreso.', 'devoluciones.', 'movimientos.', 'informes.', 'baja.')) else '' }}">

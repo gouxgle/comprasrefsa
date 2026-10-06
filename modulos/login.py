@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, session, url_for, flash, jsonify, make_response
 from conexiones import conn, cursor, check_connection
+from modulos.permisos import perfiles_de
 
 login_bp = Blueprint('login', __name__)
 
@@ -85,37 +86,26 @@ def login():
             session['id']      = usuario
             session['tipo']    = tipo
 
-            cursor.execute("""
-                SELECT DISTINCT t.idjefatura, v.tipooperario, j.jefatura
-                FROM comun.voperarios v
-                JOIN comun.tiposoperarios t ON v.idtipooperario = t.idtipooperario
-                JOIN comun.jefaturas j      ON t.idjefatura     = j.idjefatura
-                WHERE v.idoperario = %s
-            """, (usuario,))
-            sectores = cursor.fetchall()
+            # Perfiles = (sector, tipo) cuyo tipo habilita alguna función (listas del FoxPro: permisos.py)
+            perfiles, tipos = perfiles_de(cursor, usuario)
+            session['tipos']    = tipos
+            session['sectores'] = perfiles
 
-            session['sectores'] = [
-                {'id': row[0], 'tipo': (row[1] or '').strip(), 'nombre': (row[2] or '').strip()}
-                for row in sectores
-            ]
-
-            if len(sectores) == 0:
+            if not perfiles:
                 session.clear()
                 flash(
-                    f'El usuario {nombre} no tiene sectores asignados. '
-                    'Contacte al administrador del sistema.',
+                    f'El usuario {nombre} no tiene funciones habilitadas en este sistema. '
+                    'Contacte al administrador.',
                     'danger'
                 )
                 return render_template('login.html')
-            elif len(sectores) == 1:
-                session['id_sector']     = sectores[0][0]
-                session['tipooperario']  = (sectores[0][1] or '').strip()
-                session['sector_nombre'] = (sectores[0][2] or '').strip()
+            elif len(perfiles) == 1:
+                _activar_perfil(perfiles[0])
                 return redirect(url_for('menu_bp.menu_principal'))
             else:
                 return render_template('login.html',
                                        seleccionar_sector=True,
-                                       sectores=session['sectores'])
+                                       sectores=perfiles)
 
         flash('Credenciales inválidas', 'danger')
 
@@ -132,16 +122,24 @@ def logout():
     return response
 
 
+def _activar_perfil(perfil):
+    session['id_sector']     = perfil['id']
+    session['tipo_id']       = perfil['tipo_id']
+    session['tipooperario']  = perfil['tipo']
+    session['sector_nombre'] = perfil['nombre']
+    session.pop('sectores', None)        # solo hacía falta para elegir; no engordar la cookie
+    session.permanent = False
+
+
 @login_bp.route('/seleccionar_sector', methods=['POST'])
 def seleccionar_sector():
-    sector_id = str(request.json.get('sector', ''))
-    sector    = next(
-        (s for s in session.get('sectores', []) if str(s['id']) == sector_id),
-        None
-    )
-    if sector:
-        session['id_sector']     = sector['id']
-        session['tipooperario']  = sector['tipo']
-        session['sector_nombre'] = sector['nombre']
-    session.permanent = False
-    return jsonify({'status': 'ok'})
+    datos     = request.json or {}
+    sector_id = str(datos.get('sector', ''))
+    tipo_id   = str(datos.get('tipo', '')).strip()
+    candidatos = [s for s in session.get('sectores', []) if str(s['id']) == sector_id]
+    # un mismo sector puede tener varios tipos: se elige el par exacto (sector, tipo)
+    perfil = next((s for s in candidatos if s['tipo_id'] == tipo_id), None) or (candidatos[0] if candidatos and not tipo_id else None)
+    if perfil:
+        _activar_perfil(perfil)
+        return jsonify({'status': 'ok'})
+    return jsonify({'status': 'error'}), 400

@@ -1,33 +1,52 @@
 from functools import wraps
 from flask import session, redirect, url_for, make_response, jsonify, request
 
-# Prefijos que corresponden a personal de almacenes (N, N0, N1, M, M0, M1…)
-_PREFIJOS_ALMACENES = ('N', 'M')
-_PREFIJOS_ADMIN     = ('A', 'J')
+from modulos import permisos
 
 
-def _tipo():
-    return (session.get('tipo') or '').strip().upper()
+def _caps():
+    """Capacidades del usuario logueado (ver modulos/permisos.py: réplica de la lógica del FoxPro)."""
+    return permisos.capacidades(session.get('tipos'), session.get('tipo_id'))
 
-def _es_almacenes(t):
-    return t.startswith(_PREFIJOS_ALMACENES)
-
-def _es_admin(t):
-    return t.startswith(_PREFIJOS_ADMIN)
 
 def puede_almacenes():
-    t = _tipo()
-    return _es_almacenes(t) or _es_admin(t)
+    return _caps()['almacenes']
+
+
+def puede_retiro():
+    return _caps()['retiro']
+
 
 def puede_pim():
-    return not _es_almacenes(_tipo())
+    return _caps()['pim']
 
 
 def login_requerido(f):
     @wraps(f)
     def decorada(*args, **kwargs):
-        if 'usuario' not in session or 'id_sector' not in session:
+        # sin 'tipos' = sesión anterior al modelo de permisos por tipo: vuelve a ingresar
+        if 'usuario' not in session or 'id_sector' not in session or 'tipos' not in session:
             return redirect(url_for('login.login'))
+        resp = make_response(f(*args, **kwargs))
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        resp.headers['Pragma'] = 'no-cache'
+        resp.headers['Expires'] = '0'
+        return resp
+    return decorada
+
+
+def pedidos_requerido(f):
+    """Estado de Pedidos / Imprimir Vales: para quien hace pedidos de sector o trabaja en Almacenes
+    (en el FoxPro son pantallas de esos programas; quien solo autoriza no las tiene)."""
+    @wraps(f)
+    def decorada(*args, **kwargs):
+        if 'usuario' not in session or 'id_sector' not in session or 'tipos' not in session:
+            return redirect(url_for('login.login'))
+        c = _caps()
+        if not (c['retiro'] or c['pim'] or c['almacenes']):
+            if request.is_json or request.headers.get('X-Requested-With') or request.path.count('/') > 1:
+                return jsonify({'ok': False, 'msg': 'Sin permiso'}), 403
+            return redirect(url_for('menu_bp.menu_principal'))
         resp = make_response(f(*args, **kwargs))
         resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         resp.headers['Pragma'] = 'no-cache'
@@ -39,7 +58,7 @@ def login_requerido(f):
 def almacenes_requerido(f):
     @wraps(f)
     def decorada(*args, **kwargs):
-        if 'usuario' not in session or 'id_sector' not in session:
+        if 'usuario' not in session or 'id_sector' not in session or 'tipos' not in session:
             return redirect(url_for('login.login'))
         if not puede_almacenes():
             if request.is_json or request.headers.get('X-Requested-With'):

@@ -135,6 +135,7 @@
 <div class="sec-label"><i class="fas fa-th-large"></i>Módulos principales</div>
 <div class="row g-3 mb-4">
 
+    {% if cap.retiro %}
     <div class="col-12 col-sm-6 col-lg">
         <a href="{{ url_for('retiro.retiro_materiales') }}" class="mod-card">
             <div class="mod-icon" style="background:#1565c0"><i class="fas fa-dolly"></i></div>
@@ -145,8 +146,9 @@
             <div class="mod-arrow"><i class="fas fa-chevron-right"></i></div>
         </a>
     </div>
+    {% endif %}
 
-    {% if session.get('tipo','')[:1].upper() not in ('N','M') %}
+    {% if cap.pim %}
     <div class="col-12 col-sm-6 col-lg">
         <a href="{{ url_for('pedidos.pedido_interno') }}" class="mod-card">
             <div class="mod-icon" style="background:#7b1fa2"><i class="fas fa-file-alt"></i></div>
@@ -159,6 +161,7 @@
     </div>
     {% endif %}
 
+    {% if cap.retiro or cap.pim %}
     <div class="col-12 col-sm-6 col-lg">
         <a href="{{ url_for('estado.estado_pedido') }}" class="mod-card">
             <div class="mod-icon" style="background:#00897b"><i class="fas fa-search"></i></div>
@@ -169,7 +172,9 @@
             <div class="mod-arrow"><i class="fas fa-chevron-right"></i></div>
         </a>
     </div>
+    {% endif %}
 
+    {% if cap.retiro or cap.pim or cap.almacenes %}
     <div class="col-12 col-sm-6 col-lg">
         <a href="{{ url_for('imprimir.imprimir') }}" class="mod-card">
             <div class="mod-icon" style="background:#e65100"><i class="fas fa-print"></i></div>
@@ -180,8 +185,9 @@
             <div class="mod-arrow"><i class="fas fa-chevron-right"></i></div>
         </a>
     </div>
+    {% endif %}
 
-    {% if session.get('tipo','')[:1].upper() in ('N','M','A','J') %}
+    {% if cap.almacenes %}
     <div class="col-12 col-sm-6 col-lg">
         <a href="{{ url_for('almacenes.panel') }}" class="mod-card">
             <div class="mod-icon" style="background:#2e7d32"><i class="fas fa-warehouse"></i></div>

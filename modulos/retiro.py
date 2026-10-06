@@ -3,7 +3,7 @@ from flask import Blueprint, render_template, request, session, flash, redirect,
 from conexiones import conn_almacenes, cursor_almacenes, check_connection
 from conexiones import conn, cursor
 from datetime import datetime
-from modulos.utils import login_requerido
+from modulos.utils import login_requerido, puede_retiro
 
 retiro_bp = Blueprint('retiro', __name__)
 
@@ -18,6 +18,10 @@ conn, cursor = check_connection(conn, cursor, 'comun')
 @retiro_bp.route('/retiro_materiales', methods=['GET', 'POST'])
 @login_requerido
 def retiro_materiales():
+    if not puede_retiro():
+        flash('Su perfil actual no puede generar pedidos de retiro de materiales.', 'warning')
+        return redirect(url_for('menu_bp.menu_principal'))
+
     global conn_almacenes, cursor_almacenes, conn, cursor
     conn_almacenes, cursor_almacenes = check_connection(conn_almacenes, cursor_almacenes, 'almacenes')
     conn, cursor = check_connection(conn, cursor, 'comun')
