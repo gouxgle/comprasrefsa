@@ -32,6 +32,7 @@ modulos/
   devoluciones.py       # Blueprint devoluciones — pestaña Devoluciones (Page10 FoxPro)
   movimientos.py        # Blueprint movimientos — pestaña Movimientos, solo consultas (Page11 FoxPro)
   buscar.py             # Blueprint buscar — búsquedas select2 de personal y materiales
+  baja.py               # Blueprint baja — pestaña Baja: renombrar, stock/total/baja y alta de materiales (bajar.exe)
   modificar.py          # Blueprint modificar — modificar P.I.M. y vales de retiro ya generados
   autorizaciones.py     # Blueprint autorizaciones — autorización de pedidos firmados (permisos.exe)
   utils.py              # Decorador @login_requerido
@@ -143,6 +144,15 @@ Al crear un retiro nuevo:
 - **Perfil "solo Autorizaciones":** los IdOperario de `SOLO_AUTORIZACIONES` (en `.env`, por defecto `703`) solo ven y acceden a Autorizaciones — `before_request` en `app.py` redirige toda otra página (Accept `text/html`) y devuelve 403 a las llamadas de datos. Reemplaza el uso del ejecutable independiente `permisos.exe`
 - Pedidos: `vpedidosvirtuales1` estado 0 · Retiros: `estado < 2` (con los estados actuales 30/32/39 la lista sale siempre vacía, igual que en FoxPro) · Compras: `vpedidosreales1 idautorizacion < 2`
 - Autorizar P.I.M. actualiza cabecera + detalles (+ P.E.); Compra pone `estado = 21` y `fechaautorizado`. El servidor revalida que siga pendiente y en el alcance del usuario
+
+### Baja de materiales (`/almacenes/baja`, `modulos/baja.py`) — réplica de `fox/bajar.exe` + Materiales→Subir de `almacenes3.exe`
+- Acceso: tipos N, M, A, J (`almacenes_requerido`). `bajar.exe` no pedía usuario. Búsqueda por palabras (AND) o código `AL-24`, filtro por grupo (`cd1`) y estado; máx. 300 filas (la tabla tiene 14.600)
+- **Renombrar:** `UPDATE materiales SET material`. No fuerza mayúsculas (como bajar.exe); el alta sí (como Page9). Avisa si ya hay otro material con ese nombre
+- **Stock / total / baja** (solo `materiales`, NO el stock por sector `materialesdesectores`): guarda solo lo que cambió y devuelve 409 si el valor en la base ya no es el que se cargó (bajar.exe "Dale a todo" reescribía las 14.600 filas pisando cambios ajenos). `stock` es unsigned (no admite negativos), `total` sí. Todo ajuste de stock/total exige motivo
+- **`baja` no es booleano:** 0 activo (hay 12.889), 1 de baja, 5/6/7/8 marcas de migración. El interruptor solo escribe 1 (dar de baja) o 0 (reactivar); si no se toca, la marca se conserva. El código previo queda en la auditoría
+- **Alta:** cd2 automático = máx. de los códigos de 4 dígitos del grupo + 1 (el FoxPro usaba VAL y tropezaba con 6 códigos no numéricos), con reintento ante `Duplicate entry` por altas simultáneas; nombre en mayúsculas; valida grupo/unidad/marca, código de barras repetido ('0' se ignora). Opcional "habilitar en sector": `INSERT materialesdesectores (… stockini = stock …)`; sin eso el material no aparece en Retiro ni en P.I.M.
+- **Auditoría:** cada cambio se anexa a `logs/auditoria_baja.log` (JSON por línea, ignorado por git) y al log de la app
+- `sql_mode` del servidor NO es estricto: las columnas NOT NULL omitidas se completan solas, por eso los INSERT las dan explícitas
 
 ### Modificar P.I.M. y vales de retiro (`modulos/modificar.py`, plantilla `modificar_pedido.html`)
 - **P.I.M.** (`/pim/modificar/<id>`, botón en *Estado de Pedidos → Pedido Interno*): solo quien lo generó, con `estado = 0`, **sin autorizar** (autorizacion 0/1/2), sin proyecto especial y sin renglones en el circuito de compras (pedido de precio / O.C. / ingresos / comparativas). Permite cambiar cantidades, cambiar/quitar/agregar materiales (del catálogo del sector del pedido) y editar comentarios. Renumera los renglones 1..n

@@ -194,7 +194,7 @@
         {% if session.get('tipo','')[:1].upper() in ('N','M','A','J') %}
         <li>
             <a href="{{ url_for('almacenes.panel') }}"
-               class="{{ 'active' if (request.endpoint or '').startswith(('almacenes.', 'ingreso.', 'devoluciones.', 'movimientos.', 'informes.')) else '' }}">
+               class="{{ 'active' if (request.endpoint or '').startswith(('almacenes.', 'ingreso.', 'devoluciones.', 'movimientos.', 'informes.', 'baja.')) else '' }}">
                 <i class="fas fa-warehouse"></i>Almacenes
             </a>
         </li>

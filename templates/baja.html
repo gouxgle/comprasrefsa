@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+
+{% block title %}Almacenes — Baja{% endblock %}
+
+{% block extra_css %}
+<style>
+.tbl-baja td, .tbl-baja th { font-size:.8rem; vertical-align:middle; white-space:nowrap; }
+.tbl-baja td.nom { white-space:normal; min-width:240px; }
+.tbl-baja tbody tr { cursor:pointer; }
+.tbl-baja tbody tr:hover td { background:#e9f0ff; }
+.tbl-baja tbody tr.selected td { background:#d4edda !important; }
+.tbl-baja tbody tr.de-baja td { color:#9b1c1c; }
+.filtros { background:#f8f9fa; border:1px solid #dee2e6; border-radius:.5rem; padding:.7rem 1rem; }
+.etq { font-size:.7rem; text-transform:uppercase; letter-spacing:.03em; color:#6c757d; font-weight:600; margin-bottom:.2rem; }
+.ficha-cab { border-left:4px solid var(--refsa-blue); padding:.2rem .8rem; background:#f5f9ff; border-radius:.3rem; }
+.select2-container--default .select2-selection--single {
+    height:31px; border:1px solid #ced4da; border-radius:.25rem; font-size:.85rem; }
+.select2-container--default .select2-selection--single .select2-selection__rendered { line-height:29px; padding-left:.6rem; }
+.select2-container--default .select2-selection--single .select2-selection__arrow { height:29px; }
+.card-header .badge { color:#fff; }
+.card-header .badge:empty { display:none; }
+.panel-vacio { color:#9aa5b1; text-align:center; padding:3rem 1rem; }
+.cuenta { font-size:.72rem; color:#6c757d; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% include '_almacenes_tabs.html' %}
+
+<div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+    <div>
+        <h5 class="mb-0" style="color:var(--refsa-blue);"><i class="fas fa-boxes me-2"></i>Baja de materiales</h5>
+        <span class="text-muted small">Renombrar, ajustar stock / total / baja y crear materiales nuevos</span>
+    </div>
+    <button class="btn btn-success btn-sm" onclick="abrirNuevo()"><i class="fas fa-plus me-1"></i>Nuevo material</button>
+</div>
+
+<div class="row g-3">
+    <!-- ── Búsqueda y grilla ─────────────────────────────────────────────── -->
+    <div class="col-12 col-xl-7">
+        <div class="filtros mb-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-5">
+                    <div class="etq">Buscar</div>
+                    <input type="text" id="fBuscar" class="form-control form-control-sm" placeholder="Palabras del nombre o código (ej. AL-0024)" autocomplete="off">
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="etq">Grupo</div>
+                    <select id="fGrupo" class="form-select form-select-sm">
+                        <option value=""></option>
+                        {% for g in grupos %}<option value="{{ g.id }}">{{ g.id }} — {{ g.nombre }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <div class="etq">Estado</div>
+                    <select id="fEstado" class="form-select form-select-sm">
+                        <option value="todos">Todos</option><option value="activos">Activos</option><option value="baja">De baja</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-2"><button class="btn btn-primary btn-sm w-100" onclick="buscar()"><i class="fas fa-search me-1"></i>Buscar</button></div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header py-1 d-flex justify-content-between align-items-center">
+                <span class="small fw-bold"><i class="fas fa-list me-1"></i>Materiales</span>
+                <span id="cnt" class="badge bg-secondary"></span>
+            </div>
+            <div id="avisoTrunc" class="alert alert-warning py-1 px-2 m-2 small d-none">Se muestran los primeros 300. Afine la búsqueda.</div>
+            <div class="card-body p-0" style="height:520px; overflow:auto;">
+                <table class="table table-sm tbl-baja mb-0">
+                    <thead class="table-light sticky-top">
+                        <tr><th>Código</th><th>Material</th><th>Unid.</th><th class="text-end">Stock</th><th class="text-end">Total</th><th class="text-center">Estado</th></tr>
+                    </thead>
+                    <tbody id="tbody"><tr><td colspan="6" class="text-center text-muted py-5">Escriba una palabra o un código y presione <strong>Buscar</strong></td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Material seleccionado ─────────────────────────────────────────── -->
+    <div class="col-12 col-xl-5">
+        <div id="panelVacio" class="card"><div class="card-body panel-vacio"><i class="fas fa-hand-pointer fa-2x mb-2"></i><br>Seleccione un material de la lista</div></div>
+
+        <div id="panel" class="d-none">
+            <div class="ficha-cab mb-2">
+                <div class="font-monospace fw-bold" id="fCodigo"></div>
+                <div id="fNombre"></div>
+                <div id="fEstadoBadge" class="mt-1"></div>
+            </div>
+
+            <div class="card mb-2">
+                <div class="card-header py-1 small fw-bold"><i class="fas fa-i-cursor me-1"></i>Renombrar</div>
+                <div class="card-body">
+                    <div class="etq">Nuevo nombre</div>
+                    <input type="text" id="txtNombre" class="form-control form-control-sm" maxlength="{{ nombre_max }}" autocomplete="off">
+                    <div class="d-flex justify-content-between mt-1">
+                        <span class="cuenta" id="cuentaNombre"></span>
+                        <button class="btn btn-sm btn-primary" id="btnRenombrar" disabled onclick="confirmarRenombrar()"><i class="fas fa-check me-1"></i>Renombrar</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header py-1 small fw-bold"><i class="fas fa-balance-scale me-1"></i>Stock del almacén y baja</div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-6"><div class="etq">Stock</div>
+                            <input type="number" step="0.01" min="0" id="txtStock" class="form-control form-control-sm text-end"></div>
+                        <div class="col-6"><div class="etq">Total</div>
+                            <input type="number" step="0.01" id="txtTotal" class="form-control form-control-sm text-end"></div>
+                    </div>
+                    <div class="cuenta mt-1">El stock no admite negativos; el total sí (hay valores negativos históricos).</div>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="chkBaja">
+                        <label class="form-check-label small fw-semibold" for="chkBaja">Dado de baja</label>
+                    </div>
+                    <div class="cuenta" id="notaBaja"></div>
+                    <div class="etq mt-2">Motivo del ajuste de stock</div>
+                    <input type="text" id="txtMotivo" class="form-control form-control-sm" maxlength="200" placeholder="Ej.: ajuste por inventario" autocomplete="off">
+                    <div class="text-end mt-2"><button class="btn btn-sm btn-primary" id="btnStock" disabled onclick="confirmarStock()"><i class="fas fa-save me-1"></i>Guardar</button></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmación genérica -->
+<div class="modal fade" id="modalConf" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+        <div class="modal-header py-2"><h6 class="modal-title" id="confTitulo"></h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body" id="confCuerpo"></div>
+        <div class="modal-footer py-2">
+            <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-sm btn-primary" id="confOk"><i class="fas fa-check me-1"></i>Confirmar</button>
+        </div>
+    </div></div>
+</div>
+
+<!-- Nuevo material -->
+<div class="modal fade" id="modalNuevo" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+        <div class="modal-header py-2"><h6 class="modal-title"><i class="fas fa-plus-circle me-1 text-success"></i>Nuevo material</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <div class="row g-2">
+                <div class="col-12 col-md-6"><div class="etq">Tipo (grupo) *</div>
+                    <select id="nGrupo" class="form-select form-select-sm" style="width:100%"><option value=""></option>
+                        {% for g in grupos %}<option value="{{ g.id }}">{{ g.id }} — {{ g.nombre }}</option>{% endfor %}</select></div>
+                <div class="col-6 col-md-3"><div class="etq">Código</div>
+                    <input type="text" id="nCd2" class="form-control form-control-sm font-monospace" maxlength="4" placeholder="0000" disabled></div>
+                <div class="col-6 col-md-3 d-flex align-items-end"><div class="form-check mb-1">
+                    <input class="form-check-input" type="checkbox" id="nAuto" checked><label class="form-check-label small" for="nAuto">Código automático</label></div></div>
+                <div class="col-12"><div class="etq">Detalle *</div>
+                    <input type="text" id="nNombre" class="form-control form-control-sm" maxlength="{{ nombre_max }}" autocomplete="off">
+                    <div class="cuenta">Se graba en mayúsculas.</div></div>
+                <div class="col-6 col-md-3"><div class="etq">Unidad</div>
+                    <select id="nUnidad" class="form-select form-select-sm"><option value=""></option>
+                        {% for u in unidades %}<option value="{{ u.id }}">{{ u.id }} — {{ u.nombre }}</option>{% endfor %}</select></div>
+                <div class="col-6 col-md-3"><div class="etq">Marca</div>
+                    <select id="nMarca" class="form-select form-select-sm"><option value=""></option>
+                        {% for m in marcas %}<option value="{{ m.id }}">{{ m.nombre }}</option>{% endfor %}</select></div>
+                <div class="col-6 col-md-3"><div class="etq">Precio</div><input type="number" step="0.01" min="0" id="nPrecio" class="form-control form-control-sm text-end"></div>
+                <div class="col-6 col-md-3"><div class="etq">Código de barras</div><input type="text" id="nBarras" class="form-control form-control-sm" maxlength="20"></div>
+                <div class="col-6 col-md-2"><div class="etq">Stock mín.</div><input type="number" step="0.01" min="0" id="nMin" class="form-control form-control-sm text-end"></div>
+                <div class="col-6 col-md-2"><div class="etq">Stock medio</div><input type="number" step="0.01" min="0" id="nMed" class="form-control form-control-sm text-end"></div>
+                <div class="col-6 col-md-2"><div class="etq">Stock máx.</div><input type="number" step="0.01" min="0" id="nMax" class="form-control form-control-sm text-end"></div>
+                <div class="col-6 col-md-3"><div class="etq">Stock</div><input type="number" step="0.01" min="0" id="nStock" class="form-control form-control-sm text-end"></div>
+                <div class="col-6 col-md-3"><div class="etq">Total</div><input type="number" step="0.01" id="nTotal" class="form-control form-control-sm text-end"></div>
+            </div>
+            <hr class="my-3">
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" id="nHabilitar"><label class="form-check-label fw-semibold small" for="nHabilitar">Habilitar en un sector</label>
+                <div class="cuenta">Sin esto el material no aparece en Retiro ni en P.I.M. de ningún sector.</div>
+            </div>
+            <div class="row g-2 d-none" id="bloqueSector">
+                <div class="col-12 col-md-4"><div class="etq">Sector *</div>
+                    <select id="sSector" class="form-select form-select-sm"><option value=""></option>
+                        {% for s in sectores %}<option value="{{ s.id }}">{{ s.id }} — {{ s.nombre | upper }}</option>{% endfor %}</select></div>
+                <div class="col-6 col-md-2"><div class="etq">Mínimo</div><input type="number" step="0.01" min="0" id="sMin" class="form-control form-control-sm text-end"></div>
+                <div class="col-6 col-md-2"><div class="etq">Medio</div><input type="number" step="0.01" min="0" id="sMed" class="form-control form-control-sm text-end"></div>
+                <div class="col-6 col-md-2"><div class="etq">Máximo</div><input type="number" step="0.01" min="0" id="sMax" class="form-control form-control-sm text-end"></div>
+                <div class="col-6 col-md-2"><div class="etq">Stock</div><input type="number" step="0.01" min="0" id="sStock" class="form-control form-control-sm text-end"></div>
+            </div>
+        </div>
+        <div class="modal-footer py-2">
+            <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-sm btn-success" id="btnSubir" onclick="subirNuevo()"><i class="fas fa-upload me-1"></i>Subir</button>
+        </div>
+    </div></div>
+</div>
+
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="toastBaja" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex"><div class="toast-body" id="toastMsg"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const NOMBRE_MAX = {{ nombre_max }};
+let sel = null;          // ficha del material seleccionado (valores tal como están en la base)
+let toastBS = null, filas = [];
+
+const fmt = v => (v == null || v === '') ? '' : parseFloat(v).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = id => { const v = document.getElementById(id).value; return v === '' ? null : parseFloat(v); };
+const $id = id => document.getElementById(id);
+
+function toast(msg, ok) {
+    const el = $id('toastBaja');
+    el.className = 'toast align-items-center text-white border-0 ' + (ok ? 'bg-success' : 'bg-danger');
+    $id('toastMsg').textContent = msg; toastBS.show();
+}
+
+function postJSON(url, body) {
+    return fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})
+        .then(r => r.json().then(j => Object.assign(j, {status: r.status}))).catch(() => ({ok: false, msg: 'Error de conexión'}));
+}
+
+function confirmar(titulo, cuerpoHtml, fn) {
+    $id('confTitulo').innerHTML = titulo; $id('confCuerpo').innerHTML = cuerpoHtml;
+    const ok = $id('confOk'); ok.disabled = false;
+    ok.onclick = function() { ok.disabled = true; bootstrap.Modal.getOrCreateInstance($id('modalConf')).hide(); fn(); };
+    bootstrap.Modal.getOrCreateInstance($id('modalConf')).show();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    toastBS = new bootstrap.Toast($id('toastBaja'), {delay: 5000});
+    $('#fGrupo').select2({placeholder: '— Todos —', allowClear: true, width: '100%'});
+    $('#nGrupo').select2({placeholder: '— Elija el tipo —', width: '100%', dropdownParent: $('#modalNuevo')});
+    $id('fBuscar').addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
+    $id('txtNombre').addEventListener('input', actualizarPanel);
+    ['txtStock', 'txtTotal', 'txtMotivo'].forEach(id => $id(id).addEventListener('input', actualizarPanel));
+    $id('chkBaja').addEventListener('change', actualizarPanel);
+    $id('nAuto').addEventListener('change', function() { $id('nCd2').disabled = this.checked; if (this.checked) $id('nCd2').value = ''; });
+    $id('nHabilitar').addEventListener('change', function() { $id('bloqueSector').classList.toggle('d-none', !this.checked); });
+    $id('fBuscar').focus();
+});
+
+// ── Búsqueda ─────────────────────────────────────────────────────────────────
+function badge(f) {
+    if (f.de_baja) return '<span class="badge bg-danger">De baja</span>';
+    return '<span class="badge bg-light text-dark border">Activo</span>';
+}
+
+function buscar(seleccionar) {
+    const p = new URLSearchParams({q: $id('fBuscar').value, grupo: $('#fGrupo').val() || '', estado: $id('fEstado').value});
+    $id('tbody').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5"><i class="fas fa-spinner fa-spin me-1"></i>Buscando…</td></tr>';
+    return fetch('/almacenes/baja/buscar?' + p).then(r => r.json()).then(function(res) {
+        filas = res.filas || [];
+        $id('cnt').textContent = filas.length + (res.truncado ? '+' : '');
+        $id('avisoTrunc').classList.toggle('d-none', !res.truncado);
+        const tb = $id('tbody');
+        if (!filas.length) { tb.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5">' + esc(res.msg || 'Sin resultados') + '</td></tr>'; return; }
+        tb.innerHTML = '';
+        filas.forEach(function(f) {
+            const tr = document.createElement('tr');
+            tr.className = f.de_baja ? 'de-baja' : '';
+            tr.dataset.k = f.cd1 + '-' + f.cd2;
+            tr.innerHTML = '<td class="font-monospace">' + esc(f.cd1) + '-' + esc(f.cd2) + '</td><td class="nom">' + esc(f.material) +
+                '</td><td>' + esc(f.unidad) + '</td><td class="text-end">' + fmt(f.stock) + '</td><td class="text-end">' + fmt(f.total) +
+                '</td><td class="text-center">' + badge(f) + '</td>';
+            tr.addEventListener('click', () => elegir(f.cd1, f.cd2));
+            tb.appendChild(tr);
+        });
+        if (seleccionar) elegir(seleccionar[0], seleccionar[1]);
+    });
+}
+
+// ── Selección: se trae la ficha fresca de la base ────────────────────────────
+function elegir(cd1, cd2) {
+    document.querySelectorAll('#tbody tr').forEach(tr => tr.classList.toggle('selected', tr.dataset.k === cd1 + '-' + cd2));
+    fetch('/almacenes/baja/material/' + encodeURIComponent(cd1) + '/' + encodeURIComponent(cd2)).then(r => r.json()).then(function(res) {
+        if (!res.ok) { toast(res.msg, false); return; }
+        cargarPanel(res.material);
+    });
+}
+
+function cargarPanel(m) {
+    sel = m;
+    $id('panelVacio').classList.add('d-none'); $id('panel').classList.remove('d-none');
+    $id('fCodigo').textContent = m.cd1 + '-' + m.cd2; $id('fNombre').textContent = m.material;
+    $id('fEstadoBadge').innerHTML = badge(m) + (m.unidad ? ' <span class="badge bg-light text-dark border">' + esc(m.unidad) + '</span>' : '');
+    $id('txtNombre').value = m.material;
+    $id('txtStock').value = m.stock; $id('txtTotal').value = m.total;
+    $id('chkBaja').checked = m.de_baja; $id('txtMotivo').value = '';
+    $id('notaBaja').textContent = (!m.de_baja && m.baja !== 0)
+        ? 'Código de baja actual: ' + m.baja + ' (marca de migración). Al dar de baja pasa a 1; al reactivar vuelve a 0.' : '';
+    actualizarPanel();
+}
+
+function cambiosStock() {
+    if (!sel) return null;
+    const s = num('txtStock'), t = num('txtTotal');
+    return {
+        stock: s !== null && Math.abs(s - sel.stock) > 0.005, total: t !== null && Math.abs(t - sel.total) > 0.005,
+        baja: $id('chkBaja').checked !== sel.de_baja, s: s, t: t
+    };
+}
+
+function actualizarPanel() {
+    if (!sel) return;
+    const n = $id('txtNombre').value.trim();
+    $id('cuentaNombre').textContent = n.length + ' / ' + NOMBRE_MAX;
+    $id('btnRenombrar').disabled = !n || n === sel.material;
+    const c = cambiosStock(), hay = c.stock || c.total || c.baja;
+    const validos = c.s !== null && c.s >= 0 && c.t !== null;
+    const motivoOk = !(c.stock || c.total) || $id('txtMotivo').value.trim().length >= 3;
+    $id('btnStock').disabled = !(hay && validos && motivoOk);
+    $id('btnStock').title = !hay ? 'No hay cambios' : !validos ? 'Revise stock (no puede ser negativo) y total' : !motivoOk ? 'Indique el motivo del ajuste' : '';
+}
+
+// ── Renombrar ────────────────────────────────────────────────────────────────
+function confirmarRenombrar() {
+    const nuevo = $id('txtNombre').value.trim();
+    confirmar('<i class="fas fa-i-cursor me-1"></i>Renombrar',
+        'Desea renombrar a <strong>' + esc(sel.cd1 + '-' + sel.cd2) + '</strong> de<br><span class="text-muted">' + esc(sel.material) +
+        '</span><br>por<br><strong>' + esc(nuevo) + '</strong> ?', function() {
+        postJSON('/almacenes/baja/renombrar', {cd1: sel.cd1, cd2: sel.cd2, actual: sel.material, nuevo: nuevo}).then(function(res) {
+            toast(res.msg + (res.aviso ? ' — ' + res.aviso : ''), res.ok);
+            if (res.ok) { sel.material = res.material; refrescarFila(); cargarPanel(sel); }
+            else if (res.status === 409) elegir(sel.cd1, sel.cd2);
+        });
+    });
+}
+
+// ── Stock / total / baja ─────────────────────────────────────────────────────
+function confirmarStock() {
+    const c = cambiosStock(), li = [];
+    if (c.stock) li.push('Stock: <strong>' + fmt(sel.stock) + '</strong> → <strong>' + fmt(c.s) + '</strong>');
+    if (c.total) li.push('Total: <strong>' + fmt(sel.total) + '</strong> → <strong>' + fmt(c.t) + '</strong>');
+    if (c.baja)  li.push($id('chkBaja').checked ? '<strong class="text-danger">Dar de baja</strong> el material' : '<strong class="text-success">Reactivar</strong> el material');
+    confirmar('<i class="fas fa-balance-scale me-1"></i>Confirmar ajuste',
+        '<div class="mb-2"><span class="font-monospace">' + esc(sel.cd1 + '-' + sel.cd2) + '</span> ' + esc(sel.material) + '</div><ul class="mb-1">' +
+        li.map(x => '<li>' + x + '</li>').join('') + '</ul><div class="small text-muted">Motivo: ' + esc($id('txtMotivo').value.trim()) + '</div>', function() {
+        postJSON('/almacenes/baja/stock', {
+            cd1: sel.cd1, cd2: sel.cd2, stock: c.s, total: c.t, de_baja: $id('chkBaja').checked, motivo: $id('txtMotivo').value.trim(),
+            original: {stock: sel.stock, total: sel.total, de_baja: sel.de_baja}
+        }).then(function(res) {
+            toast(res.msg, res.ok);
+            if (res.ok) { sel = res.material; refrescarFila(); cargarPanel(sel); }
+            else if (res.status === 409) elegir(sel.cd1, sel.cd2);          // cambió en la base: recarga los valores reales
+        });
+    });
+}
+
+function refrescarFila() {
+    const tr = document.querySelector('#tbody tr[data-k="' + sel.cd1 + '-' + sel.cd2 + '"]');
+    if (!tr) return;
+    tr.className = (sel.de_baja ? 'de-baja ' : '') + 'selected';
+    tr.children[1].textContent = sel.material;
+    tr.children[3].textContent = fmt(sel.stock); tr.children[4].textContent = fmt(sel.total);
+    tr.children[5].innerHTML = badge(sel);
+}
+
+// ── Nuevo material ───────────────────────────────────────────────────────────
+function abrirNuevo() {
+    ['nCd2', 'nNombre', 'nPrecio', 'nBarras', 'nMin', 'nMed', 'nMax', 'nStock', 'nTotal', 'sMin', 'sMed', 'sMax', 'sStock'].forEach(id => $id(id).value = '');
+    $('#nGrupo').val($('#fGrupo').val() || '').trigger('change');
+    $id('nUnidad').value = ''; $id('nMarca').value = ''; $id('sSector').value = '';
+    $id('nAuto').checked = true; $id('nCd2').disabled = true; $id('nHabilitar').checked = false;
+    $id('bloqueSector').classList.add('d-none'); $id('btnSubir').disabled = false;
+    bootstrap.Modal.getOrCreateInstance($id('modalNuevo')).show();
+}
+
+function subirNuevo() {
+    const cuerpo = {
+        cd1: $('#nGrupo').val(), auto: $id('nAuto').checked, cd2: $id('nCd2').value, material: $id('nNombre').value,
+        unidad: $id('nUnidad').value, marca: $id('nMarca').value, precio: $id('nPrecio').value, codigobarra: $id('nBarras').value,
+        minimo: $id('nMin').value, medio: $id('nMed').value, maximo: $id('nMax').value, stock: $id('nStock').value, total: $id('nTotal').value
+    };
+    if ($id('nHabilitar').checked) {
+        if (!$id('sSector').value) { toast('Elija el sector donde habilitarlo', false); return; }
+        cuerpo.sector = {id: $id('sSector').value, minimo: $id('sMin').value, medio: $id('sMed').value, maximo: $id('sMax').value, stock: $id('sStock').value};
+    }
+    if (!cuerpo.cd1) { toast('Elija el tipo (grupo) del material', false); return; }
+    if (!cuerpo.material.trim()) { toast('Debe haber algo escrito en la casilla de Detalle', false); return; }
+    $id('btnSubir').disabled = true;
+    postJSON('/almacenes/baja/nuevo', cuerpo).then(function(res) {
+        $id('btnSubir').disabled = false;
+        toast(res.msg, res.ok);
+        if (!res.ok) return;
+        bootstrap.Modal.getOrCreateInstance($id('modalNuevo')).hide();
+        $id('fBuscar').value = res.cd1 + '-' + res.cd2; $('#fGrupo').val(null).trigger('change'); $id('fEstado').value = 'todos';
+        buscar([res.cd1, res.cd2]);
+    });
+}
+</script>
+{% endblock %}
