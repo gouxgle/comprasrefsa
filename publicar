@@ -1,0 +1,53 @@
+#!/bin/bash
+# publicar — lleva los cambios de esta carpeta a producción (VM mototrbo 192.168.0.42).
+#   ./publicar "qué cambié"      prueba → commit → GitHub → actualización con vuelta atrás automática
+#   ./publicar --sin-prueba "…"  salta la prueba (solo para cambios de texto o estilo)
+# Usa `refsa` (instalado en la VM junto con Sistemas IT): espera a que la app responda y, si no
+# responde, vuelve sola a la versión anterior. Si algo sale mal después: ssh root@192.168.0.42 refsa rollback almacenes
+# Requisitos: contenedor local almacenes_web corriendo y acceso SSH a root@192.168.0.42.
+set -euo pipefail
+cd "$(dirname "$0")"
+VM=root@192.168.0.42
+CONT=almacenes_web
+VERDE=$'\e[32m'; ROJO=$'\e[31m'; AMAR=$'\e[33m'; N=$'\e[0m'
+
+PRUEBA=1
+if [ "${1:-}" = "--sin-prueba" ]; then PRUEBA=0; shift; fi
+MSG="${1:-}"
+if [ -z "$MSG" ] && [ -n "$(git status --porcelain)" ]; then
+    read -rp "¿Qué cambiaste? (mensaje del commit): " MSG
+fi
+
+# La VM tiene que actualizar Almacenes con refsa (modo git); si todavía está en modo manual se pasa acá, una sola vez
+if ! ssh -o BatchMode=yes -o ConnectTimeout=6 "$VM" "grep -q '^almacenes|.*|git\$' /opt/apps/apps.conf"; then
+    echo "${AMAR}Almacenes figura en modo 'manual' en la VM (se actualizaba con deploy.sh).${N}"
+    read -rp "¿Lo paso a modo 'git' para que refsa lo actualice (con vuelta atrás automática)? [s/N] " R
+    [ "$R" = "s" ] || { echo "Cancelado: sigue valiendo ./deploy.sh en la VM."; exit 1; }
+    ssh "$VM" "cp /opt/apps/apps.conf /opt/apps/apps.conf.bak && sed -i 's#^\(almacenes|.*\)|manual\$#\1|git#' /opt/apps/apps.conf && grep '^almacenes' /opt/apps/apps.conf"
+fi
+
+if [ "$PRUEBA" = 1 ]; then
+    echo "▶ 1/4  Prueba rápida (pantallas y permisos, solo lectura)…"
+    docker restart "$CONT" >/dev/null && sleep 8
+    if docker exec -w /app "$CONT" python tools/prueba_humo.py; then
+        echo "   ${VERDE}✓ prueba OK${N}"
+    else
+        echo "${ROJO}✗ La prueba falló: no se publica nada.${N}"; exit 1
+    fi
+else
+    echo "▶ 1/4  Prueba omitida"
+fi
+
+echo "▶ 2/4  Commit…"
+git add -A
+if git diff --cached --quiet; then
+    echo "   sin cambios nuevos"
+else
+    git commit -q -m "${MSG:-actualización}" && echo "   $(git log -1 --format='%h %s')"
+fi
+
+echo "▶ 3/4  Envío a GitHub…"
+git push -q origin main
+
+echo "▶ 4/4  Actualización en producción…"
+ssh -o BatchMode=yes "$VM" refsa update almacenes

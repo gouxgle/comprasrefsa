@@ -22,3 +22,6 @@ fox/
 
 # Auditoría local de la sección Baja
 logs/
+
+# refsa (VM): marca de la versión anterior
+.refsa_anterior
