@@ -162,6 +162,7 @@ Cada programa FoxPro tiene su `ingreso.scx` con una **lista blanca de tipos** de
 - **J1 (secretaría, ej. QUIROS JULIO 703):** debe elegir el gerente J0 que firmó → queda en `autorizadopor`. El FoxPro guardaba el nombre en un campo numérico (quedaba 0); acá se guarda el IdOperario
 - **Perfil "solo Autorizaciones":** los IdOperario de `SOLO_AUTORIZACIONES` (en `.env`, por defecto `703`) solo ven y acceden a Autorizaciones — `before_request` en `app.py` redirige toda otra página (Accept `text/html`) y devuelve 403 a las llamadas de datos. Reemplaza el uso del ejecutable independiente `permisos.exe`
 - Pedidos: `vpedidosvirtuales1` estado 0 · Retiros: `estado < 2` (con los estados actuales 30/32/39 la lista sale siempre vacía, igual que en FoxPro) · Compras: `vpedidosreales1 idautorizacion < 2`
+- **Pantalla:** lista a la izquierda + panel de detalle a la derecha (se actualiza al hacer clic o con ↑ ↓). Pedidos tiene filtro Pendientes (por defecto) / Autorizados / Todos (`?estado=` en `/autorizaciones/lista/pim`; subgerencia ve solo su `idsubgerencia`, `/detalle/pim` valida el alcance). Los ya autorizados (`idautorizacion` 3/4) no muestran botón Autorizar sino "Ya autorizado por …"; el servidor igual devuelve 409 si se intenta
 - Autorizar P.I.M. actualiza cabecera + detalles (+ P.E.); Compra pone `estado = 21` y `fechaautorizado`. El servidor revalida que siga pendiente y en el alcance del usuario
 
 ### Baja de materiales (`/almacenes/baja`, `modulos/baja.py`) — réplica de `fox/bajar.exe` + Materiales→Subir de `almacenes3.exe`

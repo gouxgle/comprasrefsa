@@ -14,13 +14,20 @@
 .tbl-aut tbody tr.selected td { background:#d4edda !important; }
 .card-header .badge { color:#fff; }
 .card-header .badge:empty { display:none; }
-.comentarios { background:#fff; border:1px solid #dee2e6; border-radius:.35rem; padding:.35rem .6rem;
-               min-height:31px; font-size:.85rem; }
 .pend { color:#b45309; font-weight:600; white-space:nowrap; }
-.tbl-aut td.corta { max-width:420px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.autz { color:#198754; font-weight:600; white-space:nowrap; }
 .tbl-aut td { white-space:nowrap; }
-.tbl-aut td.material { white-space:normal; min-width:260px; }
-.comentarios { max-height:84px; overflow:auto; white-space:pre-line; }
+.tbl-aut td.material { white-space:normal; min-width:200px; }
+.tbl-aut td.corta { max-width:260px; overflow:hidden; text-overflow:ellipsis; }
+.panel-lista { height:calc(100vh - 330px); min-height:380px; overflow:auto; }
+.panel-det { height:calc(100vh - 330px); min-height:380px; display:flex; flex-direction:column; }
+.panel-det .cuerpo { flex:1; overflow:auto; }
+.det-cab dt { font-size:.68rem; text-transform:uppercase; color:#6c757d; font-weight:600; margin:0; }
+.det-cab dd { margin:0 0 .35rem; font-size:.85rem; }
+.det-coment { white-space:pre-line; background:#f8f9fa; border:1px solid #e3e6ea; border-radius:.35rem;
+              padding:.35rem .6rem; font-size:.82rem; max-height:90px; overflow:auto; }
+.det-pie { border-top:1px solid #dee2e6; padding:.6rem .75rem; background:#f8f9fa; }
+.ya-aut { color:#146c43; background:#d1e7dd; border:1px solid #badbcc; border-radius:.4rem; padding:.45rem .7rem; font-size:.85rem; }
 </style>
 {% endblock %}
 
@@ -69,53 +76,73 @@
     </div>
 </div>
 
-<!-- ── Detalles / comentarios / autorizado por / Autorizar ───────────────── -->
-<div class="aut-cab mb-2">
-    <div class="row g-2 align-items-end">
-        <div class="col-12 col-md-auto">
-            <div class="form-check form-switch mb-1">
-                <input class="form-check-input" type="checkbox" id="chkDetalles">
-                <label class="form-check-label fw-semibold" for="chkDetalles">Detalles</label>
+<!-- ── Filtro + lista (izquierda) · detalle (derecha) ─────────────────────── -->
+<div class="row g-2">
+    <div class="col-12 col-xl-7">
+        <div class="card">
+            <div class="card-header py-1 d-flex flex-wrap gap-2 justify-content-between align-items-center">
+                <span class="small fw-bold" id="titulo">Pedidos (P.I.M.) pendientes de autorización</span>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="btn-group btn-group-sm" role="group" id="grpEstado">
+                        <input type="radio" class="btn-check" name="estado" id="es_pend" value="pendientes" checked>
+                        <label class="btn btn-outline-secondary" for="es_pend">Pendientes</label>
+                        <input type="radio" class="btn-check" name="estado" id="es_aut" value="autorizados">
+                        <label class="btn btn-outline-secondary" for="es_aut">Autorizados</label>
+                        <input type="radio" class="btn-check" name="estado" id="es_todos" value="todos">
+                        <label class="btn btn-outline-secondary" for="es_todos">Todos</label>
+                    </div>
+                    <span id="cnt" class="badge bg-secondary"></span>
+                </div>
+            </div>
+            <div id="avisoTrunc" class="alert alert-warning py-1 px-2 m-2 small d-none">Se muestran los primeros 3000.</div>
+            <div class="card-body p-0 panel-lista" id="wrapLista" tabindex="0">
+                <table class="table table-sm tbl-aut mb-0" id="tbl">
+                    <thead class="table-light sticky-top"></thead>
+                    <tbody><tr><td class="text-center text-muted py-5">Cargando…</td></tr></tbody>
+                </table>
             </div>
         </div>
-        <div class="col-12 col-md">
-            <div class="etq">Comentarios del pedido</div>
-            <div class="comentarios" id="txtComentarios"></div>
-        </div>
-        {% if ctx.secretaria %}
-        <div class="col-12 col-md-3">
-            <label class="etq" for="selGerente">Autorizado por</label>
-            <select id="selGerente" class="form-select form-select-sm">
-                <option value="">— Gerente que firmó —</option>
-                {% for g in gerentes %}<option value="{{ g.id }}">{{ g.nombre }}</option>{% endfor %}
-            </select>
-        </div>
-        {% endif %}
-        <div class="col-12 col-md-auto">
-            <button id="btnAutorizar" class="btn btn-success fw-bold px-4" disabled onclick="autorizar()">
-                <i class="fas fa-check-circle me-1"></i>Autorizar
-            </button>
-        </div>
+        <div class="small text-muted mt-1">Clic o flechas ↑ ↓ para recorrer: el detalle se muestra a la derecha.</div>
     </div>
-</div>
 
-<!-- ── Grilla (maestro ↔ detalle, como Grid1/Grid2 del FoxPro) ─────────────── -->
-<div class="card">
-    <div class="card-header py-1 d-flex justify-content-between align-items-center">
-        <span class="small fw-bold" id="titulo">Pendientes de autorización</span>
-        <span id="cnt" class="badge bg-secondary"></span>
-    </div>
-    <div id="avisoTrunc" class="alert alert-warning py-1 px-2 m-2 small d-none">
-        Se muestran los primeros 3000.
-    </div>
-    <div class="card-body p-0" style="height:460px; overflow:auto;">
-        <table class="table table-sm tbl-aut mb-0" id="tbl">
-            <thead class="table-light sticky-top"></thead>
-            <tbody><tr><td class="text-center text-muted py-5">Cargando…</td></tr></tbody>
-        </table>
+    <div class="col-12 col-xl-5">
+        <div class="card panel-det">
+            <div class="card-header py-1 d-flex justify-content-between align-items-center">
+                <span class="small fw-bold" id="detTitulo">Detalle</span>
+                <span id="detEstado"></span>
+            </div>
+            <div class="cuerpo">
+                <div id="detVacio" class="text-center text-muted py-5">Seleccione un pedido de la lista</div>
+                <div id="detCuerpo" class="d-none">
+                    <dl class="det-cab row g-0 px-3 pt-2 mb-0" id="detCab"></dl>
+                    <div class="px-3 pb-2" id="detComWrap">
+                        <div class="etq small text-uppercase text-muted fw-semibold" style="font-size:.68rem">Comentarios del pedido</div>
+                        <div class="det-coment" id="txtComentarios"></div>
+                    </div>
+                    <table class="table table-sm tbl-aut mb-0" id="tblDet">
+                        <thead class="table-light sticky-top"></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="det-pie" id="detPie">
+                <div id="avisoAut" class="ya-aut mb-0 d-none"></div>
+                <div id="zonaAut">
+                    {% if ctx.secretaria %}
+                    <label class="small text-muted fw-semibold" for="selGerente">Autorizado por</label>
+                    <select id="selGerente" class="form-select form-select-sm mb-2">
+                        <option value="">— Gerente que firmó —</option>
+                        {% for g in gerentes %}<option value="{{ g.id }}">{{ g.nombre }}</option>{% endfor %}
+                    </select>
+                    {% endif %}
+                    <button id="btnAutorizar" class="btn btn-success fw-bold w-100" disabled onclick="autorizar()">
+                        <i class="fas fa-check-circle me-1"></i>Autorizar
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
-<div class="small text-muted mt-1">Doble clic en un pedido: ver sus materiales · doble clic en el detalle: volver a la lista.</div>
 
 <!-- Modal de confirmación de autorización exitosa -->
 <div class="modal fade" id="modalOk" tabindex="-1" data-bs-backdrop="static">
@@ -161,9 +188,8 @@ const SECRETARIA = {{ 'true' if ctx.secretaria else 'false' }};
 const COLS = {
     pim: {
         clave: 'idpedidovirtual', nombre: 'P.I.M.', plural: 'Pedidos (P.I.M.)', del: 'del P.I.M.',
-        lista: [['idpedidovirtual','Num Pedido','c'], ['jefatura','Sector','t'], ['idproyectoespecial','Num P.E.','c'],
-                ['comentarios','Comentarios','corta'], ['fecha','Fecha','c'], ['fechaentrega','F. Entrega','c'],
-                ['autorizacion','Autorización','p']],
+        lista: [['idpedidovirtual','Num Pedido','c'], ['jefatura','Sector','corta'], ['fecha','Fecha','c'],
+                ['fechaentrega','F. Entrega','c'], ['autorizacion','Autorización','p']],
         detalle: [['renglon','Orden','c'], ['material','Material','m'], ['cantidad','Cantidad','n'],
                   ['autorizacion','Tipo Autorización','t']],
     },
@@ -183,38 +209,54 @@ const COLS = {
     },
 };
 
-let clase = 'pim', seleccionado = null, detalleFilas = [], toastBS = null;
+let clase = 'pim', estado = 'pendientes', seleccionado = null, detalleFilas = [], toastBS = null, seq = 0;
 
 const fmt = v => (v == null || v === '') ? '' :
     parseFloat(v).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
     c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = id => document.getElementById(id);
+// autorizacion 3/4 = ya autorizado (Sub-Gerencia / Gerencia); solo los PIM traen ese dato
+const yaAutorizado = f => clase === 'pim' && f && f.idautorizacion >= 3;
 
 function toast(msg, ok) {
-    const el = document.getElementById('toastAut');
+    const el = $('toastAut');
     el.className = 'toast align-items-center text-white border-0 ' + (ok ? 'bg-success' : 'bg-danger');
-    document.getElementById('toastMsg').textContent = msg;
+    $('toastMsg').textContent = msg;
     toastBS.show();
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    toastBS = new bootstrap.Toast(document.getElementById('toastAut'), {delay: 4000});
+    toastBS = new bootstrap.Toast($('toastAut'), {delay: 4000});
     document.querySelectorAll('input[name=clase]').forEach(r => r.addEventListener('change', function() {
         clase = this.value;                         // Optiongroup1.InteractiveChange
-        document.getElementById('chkDetalles').checked = false;
+        estado = 'pendientes';
+        $('es_pend').checked = true;
+        $('grpEstado').classList.toggle('d-none', clase !== 'pim');   // filtro solo para P.I.M.
         cargarLista();
     }));
-    document.getElementById('chkDetalles').addEventListener('change', function() {
-        if (this.checked) verDetalle(); else cargarLista(seleccionado && seleccionado[COLS[clase].clave]);
-    });
-    const selTipo = document.getElementById('selTipo');
+    document.querySelectorAll('input[name=estado]').forEach(r => r.addEventListener('change', function() {
+        estado = this.value;
+        cargarLista();
+    }));
+    const selTipo = $('selTipo');
     if (selTipo) selTipo.addEventListener('change', function() {   // form "tipousr"
         fetch('/autorizaciones/tipo', {method: 'POST', headers: {'Content-Type': 'application/json'},
                                        body: JSON.stringify({tipo: this.value})})
             .then(r => r.json()).then(r => r.ok ? location.reload() : toast(r.msg, false));
     });
-    const selG = document.getElementById('selGerente');
+    const selG = $('selGerente');
     if (selG) selG.addEventListener('change', actualizarBoton);
+    $('wrapLista').addEventListener('keydown', function(e) {      // navegar con ↑ ↓
+        if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+        const filas = [...document.querySelectorAll('#tbl tbody tr[data-i]')];
+        if (!filas.length) return;
+        e.preventDefault();
+        const i = filas.findIndex(x => x.classList.contains('selected'));
+        const n = Math.max(0, Math.min(filas.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)));
+        filas[n].click();
+        filas[n].scrollIntoView({block: 'nearest'});
+    });
     cargarLista();
 });
 
@@ -223,49 +265,47 @@ function cabecera(cols) {
         '<th class="' + (ty === 'n' ? 'text-end' : ty === 'c' ? 'text-center' : '') + '">' + esc(t) + '</th>').join('') + '</tr>';
 }
 
-function celda(v, ty) {
+function celda(v, ty, f) {
     if (ty === 'n') return '<td class="text-end">' + fmt(v) + '</td>';
     if (ty === 'c') return '<td class="text-center">' + esc(v) + '</td>';
-    if (ty === 'p') return '<td class="pend">' + esc(v) + '</td>';
+    if (ty === 'p') return '<td class="' + (yaAutorizado(f) ? 'autz' : 'pend') + '">' + esc(v) + '</td>';
     if (ty === 'corta') return '<td class="corta" title="' + esc(v) + '">' + esc(v) + '</td>';
     if (ty === 'm') return '<td class="material">' + esc(v) + '</td>';
     return '<td>' + esc(v) + '</td>';
 }
 
-// ── Grid1: lista de pendientes ───────────────────────────────────────────────
+const ETQ_ESTADO = {pendientes: 'pendientes de autorización', autorizados: 'autorizados', todos: '(pendientes y autorizados)'};
+
+// ── Lista (Grid1) ────────────────────────────────────────────────────────────
 function cargarLista(idPrevio) {
-    const t = document.getElementById('tbl'), c = COLS[clase];
+    const t = $('tbl'), c = COLS[clase], mi = ++seq;
     seleccionado = null;
-    document.getElementById('txtComentarios').textContent = '';
-    document.getElementById('titulo').textContent = c.plural + ' pendientes de autorización';
+    limpiarDetalle();
+    $('titulo').textContent = c.plural + ' ' + (clase === 'pim' ? ETQ_ESTADO[estado] : 'pendientes de autorización');
     t.querySelector('thead').innerHTML = cabecera(c.lista);
     t.querySelector('tbody').innerHTML = '<tr><td colspan="9" class="text-center text-muted py-5"><i class="fas fa-spinner fa-spin me-1"></i>Cargando…</td></tr>';
-    actualizarBoton();
-    fetch('/autorizaciones/lista/' + clase).then(r => r.json()).then(function(res) {
+    fetch('/autorizaciones/lista/' + clase + '?estado=' + estado).then(r => r.json()).then(function(res) {
+        if (mi !== seq) return;                      // llegó una respuesta vieja
         if (!res.ok) { toast(res.msg, false); return; }
-        document.getElementById('cnt').textContent = res.filas.length;
-        document.getElementById('avisoTrunc').classList.toggle('d-none', !res.truncado);
+        $('cnt').textContent = res.filas.length;
+        $('avisoTrunc').classList.toggle('d-none', !res.truncado);
         const tbody = t.querySelector('tbody');
         if (!res.filas.length) {
             tbody.innerHTML = '<tr><td colspan="' + c.lista.length + '" class="text-center text-muted py-5">No hay ' +
-                              c.plural.toLowerCase() + ' pendientes de su autorización</td></tr>';
+                              c.plural.toLowerCase() + ' ' + (clase === 'pim' ? ETQ_ESTADO[estado] : 'pendientes de su autorización') + '</td></tr>';
             return;
         }
         tbody.innerHTML = '';
         let aSel = null;
         res.filas.forEach(function(f, i) {
             const tr = document.createElement('tr');
-            tr.innerHTML = c.lista.map(([k, _, ty]) => celda(f[k], ty)).join('');
-            tr.addEventListener('click', () => seleccionar(f, tr));
-            tr.addEventListener('dblclick', function() {            // Grid1.DblClick → Detalles
-                seleccionar(f, tr);
-                document.getElementById('chkDetalles').checked = true;
-                verDetalle();
-            });
+            tr.dataset.i = i;
+            tr.innerHTML = c.lista.map(([k, _, ty]) => celda(f[k], ty, f)).join('');
+            tr.addEventListener('click', () => { seleccionar(f, tr); $('wrapLista').focus({preventScroll: true}); });
             tbody.appendChild(tr);
             if (i === 0 || (idPrevio && f[c.clave] === idPrevio)) aSel = [f, tr];
         });
-        if (aSel) { seleccionar(aSel[0], aSel[1]); aSel[1].scrollIntoView({block: 'nearest'}); }
+        if (aSel) { seleccionar(aSel[0], aSel[1]); aSel[1].scrollIntoView({block: 'nearest'}); $('wrapLista').focus({preventScroll: true}); }
     }).catch(() => toast('Error de conexión', false));
 }
 
@@ -273,46 +313,67 @@ function seleccionar(f, tr) {
     document.querySelectorAll('#tbl tbody tr').forEach(x => x.classList.remove('selected'));
     tr.classList.add('selected');
     seleccionado = f;
-    // Grid1.Click: en Pedidos muestra los comentarios del P.I.M.
-    document.getElementById('txtComentarios').textContent = clase === 'pim' ? (f.comentarios || '') : '';
+    verDetalle(f);
+}
+
+// ── Panel derecho: cabecera + materiales (Grid2) ─────────────────────────────
+function limpiarDetalle() {
+    detalleFilas = [];
+    $('detVacio').classList.remove('d-none');
+    $('detCuerpo').classList.add('d-none');
+    $('detTitulo').textContent = 'Detalle';
+    $('detEstado').innerHTML = '';
     actualizarBoton();
 }
 
-// ── Grid2: materiales del pedido seleccionado ────────────────────────────────
-function verDetalle() {
-    if (!seleccionado) {
-        document.getElementById('chkDetalles').checked = false;
-        toast('Seleccione un pedido', false);
-        return Promise.resolve(false);
-    }
-    const c = COLS[clase], id = seleccionado[c.clave], t = document.getElementById('tbl');
-    document.getElementById('titulo').textContent = 'Materiales ' + c.del + ' ' + id;
+function verDetalle(f) {
+    const c = COLS[clase], id = f[c.clave], t = $('tblDet'), mi = ++seq;
+    $('detVacio').classList.add('d-none');
+    $('detCuerpo').classList.remove('d-none');
+    $('detTitulo').textContent = c.nombre + ' ' + id;
+    const dato = (e, v) => v ? '<dt class="col-4">' + e + '</dt><dd class="col-8">' + esc(v) + '</dd>' : '';
+    $('detCab').innerHTML = clase === 'pim'
+        ? dato('Sector', f.jefatura) + dato('Fecha', f.fecha) + dato('F. entrega', f.fechaentrega) +
+          dato('Proy. especial', f.idproyectoespecial)
+        : clase === 'retiro' ? dato('Sector', f.sector) + dato('Operario', f.DescOperario) + dato('Fecha', f.fechapedido)
+        : dato('Proveedor', f.proveedor) + dato('Fecha', f.fecha) + dato('Total', fmt(f.total) + ' ' + (f.moneda || ''));
+    $('detComWrap').classList.toggle('d-none', clase !== 'pim');
+    $('txtComentarios').textContent = f.comentarios || '(sin comentarios)';
+    $('detEstado').innerHTML = clase === 'pim'
+        ? '<span class="badge ' + (yaAutorizado(f) ? 'bg-success' : 'bg-warning text-dark') + '">' + esc(f.autorizacion) + '</span>' : '';
     t.querySelector('thead').innerHTML = cabecera(c.detalle);
-    return fetch('/autorizaciones/detalle/' + clase + '/' + id).then(r => r.json()).then(function(res) {
-        if (!res.ok) { toast(res.msg, false); return false; }
+    t.querySelector('tbody').innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-1"></i>Cargando…</td></tr>';
+    detalleFilas = [];
+    actualizarBoton();
+    fetch('/autorizaciones/detalle/' + clase + '/' + id).then(r => r.json()).then(function(res) {
+        if (!seleccionado || seleccionado[c.clave] !== id) return;     // ya navegó a otro
+        if (!res.ok) { toast(res.msg, false); return; }
         detalleFilas = res.filas;
-        document.getElementById('cnt').textContent = res.filas.length;
         const tbody = t.querySelector('tbody');
         tbody.innerHTML = res.filas.length ? '' :
-            '<tr><td colspan="' + c.detalle.length + '" class="text-center text-muted py-5">Sin materiales</td></tr>';
-        res.filas.forEach(function(f) {
+            '<tr><td colspan="' + c.detalle.length + '" class="text-center text-muted py-4">Sin materiales</td></tr>';
+        res.filas.forEach(function(d) {
             const tr = document.createElement('tr');
-            tr.innerHTML = c.detalle.map(([k, _, ty]) => celda(f[k], ty)).join('');
-            tr.addEventListener('dblclick', function() {            // Grid2.DblClick → volver
-                document.getElementById('chkDetalles').checked = false;
-                cargarLista(id);
-            });
+            tr.innerHTML = c.detalle.map(([k, _, ty]) => celda(d[k], ty, d)).join('');
             tbody.appendChild(tr);
         });
-        return true;
-    });
+    }).catch(() => toast('Error de conexión', false));
 }
 
+// El botón solo existe para pedidos pendientes; los ya autorizados muestran quién y con qué nivel
 function actualizarBoton() {
-    const falta = !seleccionado || (SECRETARIA && !document.getElementById('selGerente').value);
-    document.getElementById('btnAutorizar').disabled = falta;
-    document.getElementById('btnAutorizar').title = !seleccionado ? 'Seleccione un pedido'
-        : (SECRETARIA && !document.getElementById('selGerente').value ? 'Ingrese el gerente que autorizó el pedido' : '');
+    const ya = yaAutorizado(seleccionado);
+    const aviso = $('avisoAut');
+    $('zonaAut').classList.toggle('d-none', !!ya);
+    aviso.classList.toggle('d-none', !ya);
+    if (ya) {
+        const nivel = seleccionado.idautorizacion >= 4 ? 'Gerencia' : 'Sub-Gerencia';
+        aviso.innerHTML = '<i class="fas fa-check-circle me-1"></i>Ya autorizado por <b>' +
+            esc(seleccionado.autorizadopor || 'sin dato') + '</b> (' + nivel + ')';
+    }
+    const sinGerente = SECRETARIA && !$('selGerente').value;
+    $('btnAutorizar').disabled = !seleccionado || ya || sinGerente;
+    $('btnAutorizar').title = !seleccionado ? 'Seleccione un pedido' : (sinGerente ? 'Ingrese el gerente que autorizó el pedido' : '');
 }
 
 // ── Modal de confirmación ────────────────────────────────────────────────────
@@ -330,32 +391,27 @@ function mostrarOk(r) {
 
 // ── Command3 "Autorizar" ─────────────────────────────────────────────────────
 async function autorizar() {
-    if (!seleccionado) return;
+    if (!seleccionado || yaAutorizado(seleccionado)) return;
     const c = COLS[clase], id = seleccionado[c.clave];
     let gerente = null;
     if (SECRETARIA) {
-        gerente = document.getElementById('selGerente').value;
+        gerente = $('selGerente').value;
         if (!gerente) { toast('Ingrese el gerente que autorizó el pedido', false); return; }
     }
-    // FoxPro: si no está en Detalles, los genera para contar los materiales
-    if (!document.getElementById('chkDetalles').checked) {
-        document.getElementById('chkDetalles').checked = true;
-        if (!await verDetalle()) return;
-    }
+    if (!detalleFilas.length) { toast('Espere a que cargue el detalle del pedido', false); return; }
     const n = detalleFilas.length;
     const que = {pim: 'el pedido', retiro: 'el retiro', compra: 'la compra'}[clase];
     const nro = {pim: 'P.I.M.', retiro: 'P.R.', compra: 'O.C.'}[clase];
     let texto = '¿Autoriza ' + que + ' de los ' + n + ' materiales con ' + nro + ' Nro: ' + id + '?';
-    if (SECRETARIA) texto += '\n\nAutorizado por: ' + document.getElementById('selGerente').selectedOptions[0].text;
+    if (SECRETARIA) texto += '\n\nAutorizado por: ' + $('selGerente').selectedOptions[0].text;
     if (!confirm(texto)) return;
 
-    document.getElementById('btnAutorizar').disabled = true;
+    $('btnAutorizar').disabled = true;
     fetch('/autorizaciones/autorizar', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({clase: clase, id: id, gerente: gerente})
     }).then(r => r.json()).catch(() => ({ok: false, msg: 'Error de conexión'})).then(function(res) {
-        document.getElementById('chkDetalles').checked = false;    // vuelve a la lista actualizada
-        cargarLista();
+        cargarLista();                                  // lista actualizada (ya no aparece como pendiente)
         if (res.ok && res.resumen) mostrarOk(res.resumen); else toast(res.msg, res.ok);
     });
 }

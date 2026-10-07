@@ -26,6 +26,7 @@
 # Diferencia deliberada: el FoxPro guardaba en autorizadopor el NOMBRE del gerente del combo
 # (BoundColumn = 2) sobre un campo numérico → quedaba 0. Acá se guarda su IdOperario.
 #
+import re
 from functools import wraps
 from flask import Blueprint, render_template, session, jsonify, request, redirect, url_for, make_response
 from conexiones import conn_almacenes, cursor_almacenes, check_connection
@@ -165,15 +166,41 @@ def cambiar_tipo():
 
 # ── Listas (Check1.Click con Detalles destildado) ────────────────────────────
 
-def _sql_lista(clase, ctx):
-    if clase == 'pim':
+def _prefijar(where):
+    for c in ('idautorizacion', 'idsubgerencia', 'estado'):
+        where = re.sub(rf'(?<![\w.]){c}\b', f'v.{c}', where)
+    return where
+
+
+ESTADOS_LISTA = ('pendientes', 'autorizados', 'todos')
+
+
+def _where_pim(ctx, estado):
+    """Filtro de P.I.M. según el alcance del usuario (gerencia: todos; subgerencia: la suya)
+    y el estado pedido. Dados de baja (estado 9) nunca se listan."""
+    if estado == 'pendientes':
+        # FoxPro: gerencia ve lo que requiere Sub-Gerencia o Gerencia; subgerencia solo lo suyo
         if ctx['gerencia']:
-            where, params = "idautorizacion IN (1, 2) AND estado = 0", []
-        else:
-            where, params = "idautorizacion = 1 AND estado = 0 AND idsubgerencia = %s", [ctx['subgerencia']]
-        return (f"SELECT idpedidovirtual, jefatura, idproyectoespecial, proyectoespecial, comentarios, "
-                f"fecha, fechaentrega, autorizacion FROM almacenes.vpedidosvirtuales1 WHERE {where} "
-                f"ORDER BY idpedidovirtual DESC", params)      # más recientes primero
+            return "idautorizacion IN (1, 2) AND estado = 0", []
+        return "idautorizacion = 1 AND estado = 0 AND idsubgerencia = %s", [ctx['subgerencia']]
+    niveles = '(3, 4)' if estado == 'autorizados' else '(1, 2, 3, 4)'
+    where, params = f"idautorizacion IN {niveles} AND estado <> 9", []
+    if not ctx['gerencia']:
+        where += " AND idsubgerencia = %s"
+        params = [ctx['subgerencia']]
+    return where, params
+
+
+def _sql_lista(clase, ctx, estado='pendientes'):
+    if clase == 'pim':
+        where, params = _where_pim(ctx, estado)
+        return (f"SELECT v.idpedidovirtual, v.jefatura, v.idproyectoespecial, v.proyectoespecial, v.comentarios, "
+                f"v.fecha, v.fechaentrega, v.autorizacion, v.idautorizacion, "
+                f"TRIM(o.DescOperario) AS autorizadopor "
+                f"FROM almacenes.vpedidosvirtuales1 v "
+                f"LEFT JOIN almacenes.pedidosvirtuales p ON p.idpedidovirtual = v.idpedidovirtual "
+                f"LEFT JOIN comun.operarios o ON o.IdOperario = p.autorizadopor AND v.idautorizacion >= 3 "
+                f"WHERE {_prefijar(where)} ORDER BY v.idpedidovirtual DESC", params)      # más recientes primero
     if clase == 'retiro':
         # = vretiromateriales WHERE idestado < 2 (la vista entera tarda 5 s: se consulta directo)
         sql = ("SELECT r.idretiro, j.jefatura AS sector, e.estado, r.fechapedido, o.DescOperario "
@@ -196,7 +223,10 @@ def _sql_lista(clase, ctx):
 @autorizador_requerido
 def lista(clase):
     _conectar()
-    sql, params = _sql_lista(clase, _contexto())
+    estado = request.args.get('estado', 'pendientes')
+    if estado not in ESTADOS_LISTA or clase != 'pim':
+        estado = 'pendientes'               # retiros y compras: solo pendientes (como el FoxPro)
+    sql, params = _sql_lista(clase, _contexto(), estado)
     if sql is None:
         return jsonify({'ok': False, 'msg': 'Opción no habilitada para su usuario'}), 403
     cursor_almacenes.execute(sql + f" LIMIT {LIMITE + 1}", params)
@@ -222,6 +252,15 @@ def detalle(clase, id_pedido):
     _conectar()
     if clase not in _SQL_DETALLE or (clase == 'compra' and not _contexto()['gerencia']):
         return jsonify({'ok': False, 'msg': 'Opción no habilitada para su usuario'}), 403
+    ctx = _contexto()
+    if clase == 'pim' and not ctx['gerencia']:
+        # subgerencia: solo P.I.M. de su alcance (pendientes o ya autorizados)
+        where, params = _where_pim(ctx, 'todos')
+        cursor_almacenes.execute(
+            f"SELECT 1 FROM almacenes.vpedidosvirtuales1 v WHERE {_prefijar(where)} AND v.idpedidovirtual = %s",
+            (*params, id_pedido))
+        if not cursor_almacenes.fetchone():
+            return jsonify({'ok': False, 'msg': 'El pedido no corresponde a su sector'}), 403
     cursor_almacenes.execute(_SQL_DETALLE[clase], (id_pedido,))
     return jsonify({'ok': True, 'filas': _rows()})
 
@@ -234,7 +273,7 @@ def _pendiente(clase, id_pedido, ctx):
     sql, params = _sql_lista(clase, ctx)
     if sql is None:
         return None
-    clave = {'pim': 'idpedidovirtual', 'retiro': 'r.idretiro', 'compra': 'idpedidoreal'}[clase]
+    clave = {'pim': 'v.idpedidovirtual', 'retiro': 'r.idretiro', 'compra': 'idpedidoreal'}[clase]
     sql = sql.split(' ORDER BY ')[0] + f" AND {clave} = %s"
     cursor_almacenes.execute(sql, (*params, id_pedido))
     filas = _rows()
